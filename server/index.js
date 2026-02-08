@@ -13,7 +13,19 @@ connectDB();
 const app = express();
 
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors());
+
+const allowedOrigins = [
+    'https://artvpp91.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000'
+];
+app.use(cors({
+    origin: (origin, cb) => {
+        if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+        cb(null, false);
+    },
+    credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
