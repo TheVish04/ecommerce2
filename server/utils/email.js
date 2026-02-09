@@ -16,14 +16,15 @@ const createTransporter = () => {
         return null;
     }
 
-    const isGmail = (process.env.SMTP_HOST || '').includes('gmail');
+    // Config: prioritizing env vars, defaulting to 587 which is often more reliable in cloud hosting
+    const port = Number(process.env.SMTP_PORT) || 587;
+    const secure = process.env.SMTP_SECURE === 'true' || port === 465; // true for 465, false for 587/other
 
-    // Config from working reference
     const config = {
-        service: isGmail ? 'gmail' : undefined,
+        // service: 'gmail', // Commented out: 'service' overrides host/port/secure. We want manual control.
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: 465, // Force 465 as preferred by user
-        secure: true, // Force true
+        port: port,
+        secure: secure,
         auth: process.env.SMTP_USER ? {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS
@@ -31,11 +32,14 @@ const createTransporter = () => {
         debug: true,
         logger: true,
         tls: {
-            rejectUnauthorized: false // Crucial for some cloud environments
-        }
+            rejectUnauthorized: false
+        },
+        connectionTimeout: 10000, // 10s timeout for connection
+        greetingTimeout: 10000,   // 10s timeout for greeting
+        socketTimeout: 10000      // 10s timeout for socket
     };
 
-    console.log(`Creating email transporter: Service=${config.service} Host=${config.host} Port=${config.port} Secure=${config.secure}`);
+    console.log(`Creating email transporter: Host=${config.host} Port=${config.port} Secure=${config.secure}`);
 
     return nodemailer.createTransport(config);
 };
