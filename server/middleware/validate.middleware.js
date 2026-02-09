@@ -21,8 +21,16 @@ const runValidation = (validations) => {
         const errors = validationResult(req);
         if (errors.isEmpty()) return next();
 
-        const firstError = errors.array({ onlyFirstError: true })[0];
-        res.status(400).json({ message: firstError?.msg || 'Validation failed' });
+        const allErrors = errors.array({ onlyFirstError: false });
+        const firstError = allErrors[0];
+
+        // Return richer information so frontend can see WHICH field failed
+        // instead of a generic "Invalid value"
+        res.status(400).json({
+            message: firstError?.msg || 'Validation failed',
+            field: firstError?.param,
+            errors: allErrors
+        });
     };
 };
 
