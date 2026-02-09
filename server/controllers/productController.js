@@ -1,6 +1,8 @@
 const asyncHandler = require('express-async-handler');
 const Product = require('../models/Product');
 const { cloudinary } = require('../config/cloudinary');
+const mongoose = require('mongoose');
+const Category = require('../models/Category');
 
 // @desc    Get all products for a vendor
 // @route   GET /api/products/vendor
@@ -195,7 +197,16 @@ const getAllPublicProducts = asyncHandler(async (req, res) => {
     let query = { isActive: true, status: 'active' };
 
     if (req.query.category) {
-        query.category = req.query.category;
+        if (mongoose.Types.ObjectId.isValid(req.query.category)) {
+            query.category = req.query.category;
+        } else {
+            const categoryDoc = await Category.findOne({ slug: req.query.category.toLowerCase() });
+            if (categoryDoc) {
+                query.category = categoryDoc._id;
+            } else {
+                return res.json([]);
+            }
+        }
     }
 
     if (req.query.type) {
