@@ -58,6 +58,7 @@ const registerUser = asyncHandler(async (req, res) => {
     try {
         await sendVerificationOtpEmail({ name: pending.name, email: pending.email }, otp);
     } catch (err) {
+        console.error('Email send failed:', err); // Log the actual error for debugging
         await PendingRegistration.findByIdAndDelete(pending._id);
         res.status(500);
         throw new Error(err.message || 'Failed to send verification email. Check SMTP settings and try again.');

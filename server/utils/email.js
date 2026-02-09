@@ -5,7 +5,7 @@ try {
     nodemailer = null;
 }
 
-const EMAIL_SEND_TIMEOUT_MS = 15000; // 15s - prevents signup/login from hanging
+const EMAIL_SEND_TIMEOUT_MS = 45000; // 45s - prevents signup/login from hanging too long but allows for slower SMTP
 
 let transporter = null;
 if (nodemailer && process.env.SMTP_HOST) {
@@ -29,7 +29,7 @@ const sendMailWithTimeout = (options) => {
 };
 
 const buildOrderEmailHtml = (order) => {
-    const items = (order.products || []).map(p => 
+    const items = (order.products || []).map(p =>
         `<tr><td>${p.product?.title || 'Item'}</td><td>${p.quantity}</td><td>₹${(p.product?.price || 0) * (p.quantity || 1)}</td></tr>`
     ).join('');
     const addr = order.shippingAddress;
