@@ -33,11 +33,11 @@ router.get('/payouts', getVendorPayouts);
 // Services
 router.route('/services')
     .get(getVendorServices)
-    .post(upload.single('coverImage'), createServiceRules(), validate, createService);
+    .post(upload.single('coverImage'), ...createServiceRules(), validate, createService);
 
 router.route('/services/:id')
     .get(getServiceById)
-    .put(upload.single('coverImage'), updateServiceRules(), validate, updateService);
+    .put(upload.single('coverImage'), ...updateServiceRules(), validate, updateService);
 
 router.patch('/services/:id/toggle', toggleServiceStatus);
 

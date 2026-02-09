@@ -30,8 +30,8 @@ router.use(authorize('admin'));
 
 router.get('/dashboard', getDashboard);
 router.get('/categories', getAdminCategories);
-router.post('/categories', createCategoryRules(), validate, createCategory);
-router.put('/categories/:id', updateCategoryRules(), validate, updateCategory);
+router.post('/categories', ...createCategoryRules(), validate, createCategory);
+router.put('/categories/:id', ...updateCategoryRules(), validate, updateCategory);
 router.delete('/categories/:id', deleteCategory);
 router.get('/orders', getOrders);
 router.get('/vendors', getVendors);

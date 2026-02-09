@@ -18,6 +18,7 @@ import Dashboard from './pages/Dashboard';
 import ProfilePage from './pages/ProfilePage';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 import ArtistProfile from './pages/ArtistProfile';
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from './context/AuthContext';
@@ -73,6 +74,7 @@ function App() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/forgotpassword" element={<ForgotPassword />} />
         <Route path="/resetpassword/:resettoken" element={<ResetPassword />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/artist/:id" element={<ArtistProfile />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />

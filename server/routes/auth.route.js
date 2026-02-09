@@ -20,12 +20,12 @@ const {
     resendOtpRules
 } = require('../validators/auth.validator');
 
-router.post('/register', registerRules(), validate, registerUser);
-router.post('/verify-email', verifyEmailRules(), validate, verifyEmailOtp);
-router.post('/resend-otp', resendOtpRules(), validate, resendOtp);
-router.post('/login', loginRules(), validate, loginUser);
+router.post('/register', ...registerRules(), validate, registerUser);
+router.post('/verify-email', ...verifyEmailRules(), validate, verifyEmailOtp);
+router.post('/resend-otp', ...resendOtpRules(), validate, resendOtp);
+router.post('/login', ...loginRules(), validate, loginUser);
 router.get('/me', protect, getMe);
-router.post('/forgotpassword', forgotPasswordRules(), validate, forgotPassword);
-router.put('/resetpassword/:resettoken', resetPasswordRules(), validate, resetPassword);
+router.post('/forgotpassword', ...forgotPasswordRules(), validate, forgotPassword);
+router.put('/resetpassword/:resettoken', ...resetPasswordRules(), validate, resetPassword);
 
 module.exports = router;

@@ -30,14 +30,14 @@ const { getUserDashboardStats } = require('../controllers/userDashboardControlle
 router.get('/dashboard', protect, getUserDashboardStats);
 
 // Profile
-router.route('/profile').get(protect, getProfile).put(protect, updateProfileRules(), validate, updateProfile);
+router.route('/profile').get(protect, getProfile).put(protect, ...updateProfileRules(), validate, updateProfile);
 
 // Addresses
 router.route('/addresses')
     .get(protect, getAddresses)
-    .post(protect, addAddressRules(), validate, addAddress);
+    .post(protect, ...addAddressRules(), validate, addAddress);
 router.route('/addresses/:id')
-    .put(protect, updateAddressRules(), validate, updateAddress)
+    .put(protect, ...updateAddressRules(), validate, updateAddress)
     .delete(protect, deleteAddress);
 
 module.exports = router;

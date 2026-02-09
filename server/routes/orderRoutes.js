@@ -16,15 +16,15 @@ const { createOrderRules, updateOrderStatusRules, verifyPaymentRules } = require
 router.use(protect);
 
 router.route('/')
-    .post(createOrderRules(), validate, createOrder)
+    .post(...createOrderRules(), validate, createOrder)
     .get(getMyOrders);
 
-router.post('/initiate-payment', createOrderRules(), validate, initiatePayment);
-router.post('/verify-payment', verifyPaymentRules(), validate, verifyPayment);
+router.post('/initiate-payment', ...createOrderRules(), validate, initiatePayment);
+router.post('/verify-payment', ...verifyPaymentRules(), validate, verifyPayment);
 
 router.get('/:orderId/download/:productId', getDownloadUrl);
 router.get('/:id/invoice', getInvoice);
-router.patch('/:id', updateOrderStatusRules(), validate, updateOrderStatus);
+router.patch('/:id', ...updateOrderStatusRules(), validate, updateOrderStatus);
 router.get('/:id', getOrderById);
 
 module.exports = router;

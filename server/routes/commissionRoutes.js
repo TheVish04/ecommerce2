@@ -18,16 +18,16 @@ const {
 } = require('../validators/commission.validator');
 
 router.route('/')
-    .post(protect, createCommissionRules(), validate, createCommission)
+    .post(protect, ...createCommissionRules(), validate, createCommission)
     .get(protect, getCommissions);
 
 router.post('/:id/initiate-payment', protect, initiateCommissionPayment);
-router.post('/:id/verify-payment', protect, verifyCommissionPaymentRules(), validate, verifyCommissionPayment);
+router.post('/:id/verify-payment', protect, ...verifyCommissionPaymentRules(), validate, verifyCommissionPayment);
 
 router.route('/:id/status')
-    .put(protect, updateCommissionStatusRules(), validate, updateCommissionStatus);
+    .put(protect, ...updateCommissionStatusRules(), validate, updateCommissionStatus);
 
 router.route('/:id/delivery')
-    .put(protect, uploadDeliveryRules(), validate, uploadDelivery);
+    .put(protect, ...uploadDeliveryRules(), validate, uploadDelivery);
 
 module.exports = router;
