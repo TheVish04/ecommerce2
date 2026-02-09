@@ -155,9 +155,10 @@ const AddProduct = () => {
         const data = new FormData();
         Object.keys(formData).forEach(key => data.append(key, formData[key]));
 
-        // Append arrays
-        selectedSizes.forEach(size => data.append('availableSizes[]', size));
-        selectedPrintLocations.forEach(loc => data.append('printLocations[]', loc));
+        // Append arrays using the SAME field name so Express
+        // parses them as proper arrays: availableSizes, printLocations, availableColors
+        selectedSizes.forEach(size => data.append('availableSizes', size));
+        selectedPrintLocations.forEach(loc => data.append('printLocations', loc));
 
         // For colors, we'll store names. Backend schema is [String], likely needs modification if we want codes too.
         // Or store as "Red (#ff0000)" string? 
@@ -184,7 +185,7 @@ const AddProduct = () => {
         // Let's save the NAME. And assume the name is a valid CSS color (e.g. "Red", "Navy", "Black").
         // If the user selects a hex, we might lose the "Red" label.
         // Let's send the Name.
-        colors.forEach(color => data.append('availableColors[]', color.name)); // Sending names
+        colors.forEach(color => data.append('availableColors', color.name)); // Sending names
 
         existingImages.forEach(img => data.append('existingImages', img));
         images.forEach(image => data.append('images', image));
