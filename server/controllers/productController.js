@@ -202,10 +202,18 @@ const getAllPublicProducts = asyncHandler(async (req, res) => {
         } else {
             const slug = req.query.category.toLowerCase().trim();
             let categoryDoc = await Category.findOne({ slug });
-            // Accept "merch" as alias for "merchandise" (and vice versa)
+            // Slug aliases for shop filters (art, merch, digital) → DB slugs (physical-art, merchandise, digital-assets)
             if (!categoryDoc) {
-                const altSlug = slug === 'merch' ? 'merchandise' : slug === 'merchandise' ? 'merch' : null;
-                if (altSlug) categoryDoc = await Category.findOne({ slug: altSlug });
+                const slugAliases = {
+                    art: 'physical-art',
+                    'physical-art': 'physical-art',
+                    merch: 'merchandise',
+                    merchandise: 'merchandise',
+                    digital: 'digital-assets',
+                    'digital-assets': 'digital-assets'
+                };
+                const resolvedSlug = slugAliases[slug] || slug;
+                categoryDoc = await Category.findOne({ slug: resolvedSlug });
             }
             if (categoryDoc) {
                 query.category = categoryDoc._id;
