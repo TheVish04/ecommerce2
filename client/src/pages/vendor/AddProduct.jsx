@@ -56,7 +56,7 @@ const AddProduct = () => {
     const [categories, setCategories] = useState([]);
 
     useEffect(() => {
-        api.get('/categories?type=product').then(r => setCategories(r.data)).catch(() => {});
+        api.get('/categories?type=product').then(r => setCategories(r.data)).catch(() => { });
     }, []);
 
     useEffect(() => {
@@ -153,7 +153,11 @@ const AddProduct = () => {
         setLoading(true);
 
         const data = new FormData();
-        Object.keys(formData).forEach(key => data.append(key, formData[key]));
+        Object.keys(formData).forEach(key => {
+            if (formData[key] !== '' && formData[key] !== null && formData[key] !== undefined) {
+                data.append(key, formData[key]);
+            }
+        });
 
         // Append arrays using the SAME field name so Express
         // parses them as proper arrays: availableSizes, printLocations, availableColors
