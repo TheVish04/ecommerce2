@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Button from '../components/Button';
 import {
@@ -68,14 +69,15 @@ const FeatureCard = ({ icon, title, description, delay = 0 }) => (
     </GlassCard>
 );
 
-const CategoryCard = ({ title, image, count, delay = 0 }) => (
+const CategoryCard = ({ title, image, count, delay = 0, onClick }) => (
     <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         whileInView={{ opacity: 1, scale: 1 }}
         viewport={{ once: true }}
         transition={{ delay, duration: 0.5 }}
         whileHover={{ y: -8 }}
-        className="group relative overflow-hidden rounded-3xl aspect-[3/4] cursor-pointer"
+        onClick={onClick}
+        className={`group relative overflow-hidden rounded-3xl aspect-[3/4] ${onClick ? 'cursor-pointer' : ''}`}
     >
         <div className="absolute inset-0 bg-gradient-to-t from-dark-900 via-dark-900/40 to-transparent z-10 opacity-60 group-hover:opacity-80 transition-opacity duration-500" />
 
@@ -100,7 +102,7 @@ const CategoryCard = ({ title, image, count, delay = 0 }) => (
     </motion.div>
 );
 
-const ProductCard = ({ title, price, image, artist }) => (
+const ProductCard = ({ title, price, image, artist, onClick }) => (
     <GlassCard className="p-4 group">
         <div className="relative aspect-square rounded-2xl overflow-hidden mb-4">
             <img
@@ -112,7 +114,7 @@ const ProductCard = ({ title, price, image, artist }) => (
                 {price}
             </div>
             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
-                <Button size="sm" className="bg-white text-dark-900 hover:bg-gray-100 rounded-full">View</Button>
+                <Button size="sm" className="bg-white text-dark-900 hover:bg-gray-100 rounded-full" onClick={onClick}>View</Button>
             </div>
         </div>
         <h3 className="text-lg font-bold text-dark-900 dark:text-white truncate">{title}</h3>
@@ -144,6 +146,7 @@ const LandingPage = () => {
     const containerRef = useRef(null);
     const { scrollYProgress } = useScroll({ target: containerRef });
     const y = useTransform(scrollYProgress, [0, 1], [0, -50]);
+    const navigate = useNavigate();
 
     return (
         <div ref={containerRef} className="bg-light-900 dark:bg-dark-900 min-h-screen overflow-x-hidden selection:bg-blue-500/30 selection:text-blue-500 transition-colors duration-300">
@@ -205,10 +208,19 @@ const LandingPage = () => {
                             </p>
 
                             <div className="flex flex-col sm:flex-row gap-5 justify-center lg:justify-start">
-                                <Button size="lg" className="bg-white dark:text-dark-900 text-dark-900 hover:scale-105 transition-transform shadow-xl shadow-blue-500/10">
+                                <Button
+                                    size="lg"
+                                    className="bg-white dark:text-dark-900 text-dark-900 hover:scale-105 transition-transform shadow-xl shadow-blue-500/10"
+                                    onClick={() => navigate('/shop')}
+                                >
                                     Explore Marketplace
                                 </Button>
-                                <Button size="lg" variant="outline" className="border-gray-300 dark:border-white/20 hover:scale-105 transition-transform backdrop-blur-sm">
+                                <Button
+                                    size="lg"
+                                    variant="outline"
+                                    className="border-gray-300 dark:border-white/20 hover:scale-105 transition-transform backdrop-blur-sm"
+                                    onClick={() => navigate('/signup')}
+                                >
                                     Start Selling
                                 </Button>
                             </div>
@@ -236,7 +248,8 @@ const LandingPage = () => {
                             <motion.div
                                 animate={{ y: [0, -20, 0] }}
                                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                                className="absolute top-[10%] left-[10%] w-[70%] z-20"
+                                className="absolute top-[10%] left-[10%] w-[70%] z-20 cursor-pointer"
+                                onClick={() => navigate('/shop')}
                             >
                                 <GlassCard className="p-2 !rounded-[2rem] shadow-2xl shadow-blue-900/20">
                                     <div className="aspect-[4/3] rounded-[1.5rem] overflow-hidden">
@@ -297,24 +310,28 @@ const LandingPage = () => {
                             count="2.4k"
                             image="https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&q=80&w=600"
                             delay={0}
+                            onClick={() => navigate('/shop')}
                         />
                         <CategoryCard
                             title="3D Models"
                             count="850"
                             image="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=600"
                             delay={0.1}
+                            onClick={() => navigate('/shop')}
                         />
                         <CategoryCard
                             title="Merchandise"
                             count="5k+"
                             image="https://images.unsplash.com/photo-1529374255404-311a2a4f1fd9?auto=format&fit=crop&q=80&w=600"
                             delay={0.2}
+                            onClick={() => navigate('/merchandise')}
                         />
                         <CategoryCard
                             title="Commissions"
                             count="Active"
                             image="https://images.unsplash.com/photo-1515462277126-2dd0c162007a?auto=format&fit=crop&q=80&w=600"
                             delay={0.3}
+                            onClick={() => navigate('/services')}
                         />
                     </div>
                 </div>
@@ -328,7 +345,13 @@ const LandingPage = () => {
                             <motion.span className="text-blue-500 font-bold uppercase tracking-wider text-sm mb-2 block">Weekly Highlights</motion.span>
                             <h2 className="text-4xl font-display font-bold text-dark-900 dark:text-white">Featured Artworks</h2>
                         </div>
-                        <Button variant="outline" className="hidden sm:flex border-gray-300 dark:border-white/20">View All</Button>
+                        <Button
+                            variant="outline"
+                            className="hidden sm:flex border-gray-300 dark:border-white/20"
+                            onClick={() => navigate('/shop')}
+                        >
+                            View All
+                        </Button>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -345,7 +368,7 @@ const LandingPage = () => {
                                 viewport={{ once: true }}
                                 transition={{ delay: i * 0.1 }}
                             >
-                                <ProductCard {...item} />
+                                <ProductCard {...item} onClick={() => navigate('/shop')} />
                             </motion.div>
                         ))}
                     </div>
@@ -432,10 +455,19 @@ const LandingPage = () => {
                         Join the fastest growing community of digital artists and collectors. Your journey starts today.
                     </p>
                     <div className="flex flex-col sm:flex-row gap-6 justify-center">
-                        <Button size="lg" className="bg-white text-dark-900 hover:bg-gray-100 min-w-[200px] text-lg font-bold shadow-2xl shadow-white/20">
+                        <Button
+                            size="lg"
+                            className="bg-white text-dark-900 hover:bg-gray-100 min-w-[200px] text-lg font-bold shadow-2xl shadow-white/20"
+                            onClick={() => navigate('/signup')}
+                        >
                             Join for Free
                         </Button>
-                        <Button size="lg" variant="outline" className="border-white/30 text-white hover:bg-white/10 min-w-[200px] text-lg backdrop-blur-md">
+                        <Button
+                            size="lg"
+                            variant="outline"
+                            className="border-white/30 text-white hover:bg-white/10 min-w-[200px] text-lg backdrop-blur-md"
+                            onClick={() => navigate('/shop')}
+                        >
                             Browse Gallery
                         </Button>
                     </div>
@@ -468,29 +500,29 @@ const LandingPage = () => {
                     <div>
                         <h4 className="font-bold text-dark-900 dark:text-white mb-6">Marketplace</h4>
                         <ul className="space-y-4 text-sm text-gray-500 dark:text-gray-400">
-                            <li><a href="#" className="hover:text-blue-500 transition-colors">Digital Art</a></li>
-                            <li><a href="#" className="hover:text-blue-500 transition-colors">Photography</a></li>
-                            <li><a href="#" className="hover:text-blue-500 transition-colors">Music & Audio</a></li>
-                            <li><a href="#" className="hover:text-blue-500 transition-colors">Collectibles</a></li>
+                            <li><Link to="/shop" className="hover:text-blue-500 transition-colors">Digital Art</Link></li>
+                            <li><Link to="/shop" className="hover:text-blue-500 transition-colors">Photography</Link></li>
+                            <li><Link to="/shop" className="hover:text-blue-500 transition-colors">Music & Audio</Link></li>
+                            <li><Link to="/merchandise" className="hover:text-blue-500 transition-colors">Collectibles</Link></li>
                         </ul>
                     </div>
 
                     <div>
                         <h4 className="font-bold text-dark-900 dark:text-white mb-6">Company</h4>
                         <ul className="space-y-4 text-sm text-gray-500 dark:text-gray-400">
-                            <li><a href="#" className="hover:text-blue-500 transition-colors">About Us</a></li>
-                            <li><a href="#" className="hover:text-blue-500 transition-colors">Careers</a></li>
-                            <li><a href="#" className="hover:text-blue-500 transition-colors">Support</a></li>
-                            <li><a href="#" className="hover:text-blue-500 transition-colors">Press Kit</a></li>
+                            <li><Link to="/" className="hover:text-blue-500 transition-colors">About Us</Link></li>
+                            <li><Link to="/" className="hover:text-blue-500 transition-colors">Careers</Link></li>
+                            <li><Link to="/" className="hover:text-blue-500 transition-colors">Support</Link></li>
+                            <li><Link to="/" className="hover:text-blue-500 transition-colors">Press Kit</Link></li>
                         </ul>
                     </div>
 
                     <div>
                         <h4 className="font-bold text-dark-900 dark:text-white mb-6">Legal</h4>
                         <ul className="space-y-4 text-sm text-gray-500 dark:text-gray-400">
-                            <li><a href="#" className="hover:text-blue-500 transition-colors">Privacy Policy</a></li>
-                            <li><a href="#" className="hover:text-blue-500 transition-colors">Terms of Service</a></li>
-                            <li><a href="#" className="hover:text-blue-500 transition-colors">Copyright</a></li>
+                            <li><Link to="/" className="hover:text-blue-500 transition-colors">Privacy Policy</Link></li>
+                            <li><Link to="/" className="hover:text-blue-500 transition-colors">Terms of Service</Link></li>
+                            <li><Link to="/" className="hover:text-blue-500 transition-colors">Copyright</Link></li>
                         </ul>
                     </div>
                 </div>
