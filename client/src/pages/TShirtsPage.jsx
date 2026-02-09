@@ -13,11 +13,12 @@ const TShirtsPage = () => {
     const { addToCart } = useCart();
     const { currentUser } = useAuth();
 
-    // Default filters
-    const [style, setStyle] = useState('Classic');
+    // Default filters: no style/gender so all merchandise apparel (T-shirts) show
+    const [style, setStyle] = useState('');
     const [gender, setGender] = useState('');
 
     const styles = [
+        { id: '', label: 'All Styles' },
         { id: 'Classic', label: 'Classic T-Shirts' },
         { id: 'Essential', label: 'Essential T-Shirts' },
         { id: 'Oversized', label: 'Oversized T-Shirts', isNew: true },
@@ -38,10 +39,10 @@ const TShirtsPage = () => {
             setLoading(true);
             try {
                 const query = new URLSearchParams();
-                query.append('category', 'Merchandise');
+                query.append('category', 'merchandise');
                 query.append('subCategory', 'T-Shirts');
-                if (style) query.append('style', style);
-                if (gender) query.append('gender', gender);
+                if (style && style.trim()) query.append('style', style);
+                if (gender && gender.trim()) query.append('gender', gender);
 
                 const res = await api.get(`/products?${query.toString()}`);
                 setProducts(res.data);
@@ -62,7 +63,7 @@ const TShirtsPage = () => {
             <div className="pt-24 pb-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Header */}
                 <div className="mb-8">
-                    <h1 className="text-4xl font-bold font-display mb-2">{gender ? `${gender}'s` : ''} {style} T-Shirts</h1>
+                    <h1 className="text-4xl font-bold font-display mb-2">{gender ? `${gender}'s ` : ''}{style ? `${style} ` : 'All '}T-Shirts</h1>
                     <p className="text-gray-500 dark:text-gray-400 max-w-2xl">
                         Uncommon t-shirts designed by artists and fit for every kind of human.
                         Featuring original designs on high-quality fabrics.

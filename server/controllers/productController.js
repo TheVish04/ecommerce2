@@ -200,7 +200,13 @@ const getAllPublicProducts = asyncHandler(async (req, res) => {
         if (mongoose.Types.ObjectId.isValid(req.query.category)) {
             query.category = req.query.category;
         } else {
-            const categoryDoc = await Category.findOne({ slug: req.query.category.toLowerCase() });
+            const slug = req.query.category.toLowerCase().trim();
+            let categoryDoc = await Category.findOne({ slug });
+            // Accept "merch" as alias for "merchandise" (and vice versa)
+            if (!categoryDoc) {
+                const altSlug = slug === 'merch' ? 'merchandise' : slug === 'merchandise' ? 'merch' : null;
+                if (altSlug) categoryDoc = await Category.findOne({ slug: altSlug });
+            }
             if (categoryDoc) {
                 query.category = categoryDoc._id;
             } else {
@@ -213,15 +219,32 @@ const getAllPublicProducts = asyncHandler(async (req, res) => {
         query.type = req.query.type;
     }
 
-    // Add filtering for merchandise
+    // SubCategory: for T-Shirts, match explicit subCategory OR merchandise apparel (many products use merchandiseType only)
     if (req.query.subCategory) {
-        query.subCategory = req.query.subCategory;
+        const sub = req.query.subCategory.trim();
+        if (sub.toLowerCase() === 't-shirts') {
+            query.$or = [
+                { subCategory: /t-shirt/i },
+                { productType: 'merchandise', merchandiseType: 'apparel' }
+            ];
+        } else {
+            query.subCategory = sub;
+        }
     }
     if (req.query.gender) {
         query.gender = req.query.gender;
     }
-    if (req.query.style) {
-        query.style = req.query.style;
+    // Only filter by style when provided; match value or products with no style set
+    if (req.query.style && req.query.style.trim()) {
+        const styleVal = req.query.style.trim();
+        query.$and = query.$and || [];
+        query.$and.push({
+            $or: [
+                { style: new RegExp('^' + styleVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') },
+                { style: { $in: [null, ''] } },
+                { style: { $exists: false } }
+            ]
+        });
     }
     if (req.query.size) {
         query.availableSizes = req.query.size;
