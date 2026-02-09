@@ -54,6 +54,10 @@ app.use((req, res, next) => {
     next();
 });
 
+// Health check (for Render, load balancers, etc.)
+app.get('/', (req, res) => res.status(200).json({ ok: true, service: 'KalaVPP API' }));
+app.head('/', (req, res) => res.status(200).end());
+
 // Routes
 app.use('/api/auth', require('./routes/auth.route'));
 app.use('/api/categories', require('./routes/categoryRoutes'));

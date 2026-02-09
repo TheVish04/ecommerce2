@@ -52,7 +52,7 @@ const categorySchema = new mongoose.Schema({
 
 categorySchema.index({ type: 1, isActive: 1 });
 categorySchema.index({ parent: 1 });
-categorySchema.index({ slug: 1 });
+// slug index omitted: unique: true on slug field already creates it
 
 // Virtual for children
 categorySchema.virtual('children', {
