@@ -35,9 +35,14 @@ const createProductRules = () => [
         .withMessage('Type must be physical, digital, or service'),
     body('subCategory').optional().trim().isLength({ max: 100 }),
     body('style').optional().trim().isLength({ max: 100 }),
-    body('gender').optional().isIn(['Men', 'Women', 'Unisex', 'Kids']),
+    // Treat empty string / missing as "not provided" so it doesn't fail validation
+    body('gender')
+        .optional({ checkFalsy: true })
+        .isIn(['Men', 'Women', 'Unisex', 'Kids']),
     body('material').optional().trim().isLength({ max: 100 }),
-    body('designType').optional().isIn(['Printed', 'Embroidered']),
+    body('designType')
+        .optional({ checkFalsy: true })
+        .isIn(['Printed', 'Embroidered']),
     body('stock')
         .optional()
         .isInt({ min: 0 })
@@ -60,9 +65,13 @@ const updateProductRules = () => [
     body('subCategory').optional().trim().isLength({ max: 100 }),
     body('type').optional().isIn(['physical', 'digital', 'service']),
     body('style').optional().trim().isLength({ max: 100 }),
-    body('gender').optional().isIn(['Men', 'Women', 'Unisex', 'Kids']),
+    body('gender')
+        .optional({ checkFalsy: true })
+        .isIn(['Men', 'Women', 'Unisex', 'Kids']),
     body('material').optional().trim().isLength({ max: 100 }),
-    body('designType').optional().isIn(['Printed', 'Embroidered']),
+    body('designType')
+        .optional({ checkFalsy: true })
+        .isIn(['Printed', 'Embroidered']),
     body('stock').optional().isInt({ min: 0 }),
     body('status').optional().isIn(['draft', 'active', 'sold_out']),
     body('isActive').optional().isBoolean(),
