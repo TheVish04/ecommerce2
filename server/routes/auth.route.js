@@ -7,7 +7,8 @@ const {
     forgotPassword,
     resetPassword,
     verifyEmailOtp,
-    resendOtp
+    resendOtp,
+    testEmailConnection
 } = require('../controllers/auth.controller');
 const { protect } = require('../middleware/auth.middleware');
 const { runValidation } = require('../middleware/validate.middleware');
@@ -25,6 +26,7 @@ router.post('/verify-email', runValidation(verifyEmailRules()), verifyEmailOtp);
 router.post('/resend-otp', runValidation(resendOtpRules()), resendOtp);
 router.post('/login', runValidation(loginRules()), loginUser);
 router.get('/me', protect, getMe);
+router.get('/test-email', testEmailConnection); // Health check for SMTP
 router.post('/forgotpassword', runValidation(forgotPasswordRules()), forgotPassword);
 router.put('/resetpassword/:resettoken', runValidation(resetPasswordRules()), resetPassword);
 

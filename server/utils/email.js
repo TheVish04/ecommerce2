@@ -8,16 +8,40 @@ try {
 const EMAIL_SEND_TIMEOUT_MS = 45000; // 45s - prevents signup/login from hanging too long but allows for slower SMTP
 
 const createTransporter = () => {
-    if (!nodemailer || !process.env.SMTP_HOST) return null;
+    if (!nodemailer || !process.env.SMTP_HOST) {
+        console.warn('Email configuration missing:', {
+            host: process.env.SMTP_HOST ? 'Set' : 'Missing',
+            user: process.env.SMTP_USER ? 'Set' : 'Missing'
+        });
+        return null;
+    }
+
+    const port = parseInt(process.env.SMTP_PORT || '587');
+    const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+
+    console.log(`Creating email transporter: Host=${process.env.SMTP_HOST} Port=${port} Secure=${secure} User=${process.env.SMTP_USER || 'None'}`);
+
     return nodemailer.createTransport({
         host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: process.env.SMTP_SECURE === 'true',
+        port: port,
+        secure: secure,
         auth: process.env.SMTP_USER ? {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS
         } : undefined
     });
+};
+
+const verifyConnection = async () => {
+    const transporter = createTransporter();
+    if (!transporter) throw new Error('Email service not configured');
+    try {
+        await transporter.verify();
+        return { success: true, message: 'SMTP connection verified successfully' };
+    } catch (error) {
+        console.error('SMTP Verify Error:', error);
+        return { success: false, message: error.message, error };
+    }
 };
 
 const sendMailWithTimeout = (options) => {
@@ -182,4 +206,10 @@ const sendVerificationOtpEmail = async (user, otp) => {
     });
 };
 
-module.exports = { sendOrderConfirmationEmail, sendCommissionPaymentEmail, sendPasswordResetEmail, sendVerificationOtpEmail };
+module.exports = {
+    sendOrderConfirmationEmail,
+    sendCommissionPaymentEmail,
+    sendPasswordResetEmail,
+    sendVerificationOtpEmail,
+    verifyConnection
+};

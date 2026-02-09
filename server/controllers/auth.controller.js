@@ -5,7 +5,23 @@ const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
 const PendingRegistration = require('../models/PendingRegistration');
 const generateToken = require('../utils/generateToken');
-const { sendPasswordResetEmail, sendVerificationOtpEmail } = require('../utils/email');
+const {
+    sendPasswordResetEmail,
+    sendVerificationOtpEmail,
+    verifyConnection
+} = require('../utils/email');
+
+// @desc    Test SMTP Connection
+// @route   GET /api/auth/test-email
+// @access  Public
+const testEmailConnection = asyncHandler(async (req, res) => {
+    const result = await verifyConnection();
+    if (result.success) {
+        res.status(200).json(result);
+    } else {
+        res.status(500).json(result);
+    }
+});
 
 // @desc    Register new user (sends OTP for email verification; user is NOT stored until OTP verified)
 // @route   POST /api/auth/register
@@ -326,5 +342,6 @@ module.exports = {
     forgotPassword,
     resetPassword,
     verifyEmailOtp,
-    resendOtp
+    resendOtp,
+    testEmailConnection
 };
