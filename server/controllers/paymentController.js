@@ -103,12 +103,20 @@ const verifyPayment = asyncHandler(async (req, res) => {
         }
     }
 
-    const { buildOrderFromItems } = require('./orderController');
+    const { buildOrderFromItems, ensureDownloadAccessForOrder } = require('./orderController');
     const order = await buildOrderFromItems(items, buyerId, shippingAddress || {});
     order.paymentStatus = razorpayInstance ? 'paid' : 'pending';
     order.razorpayOrderId = razorpay_order_id;
     order.razorpayPaymentId = razorpay_payment_id;
     await order.save();
+
+    if (order.paymentStatus === 'paid') {
+        try {
+            await ensureDownloadAccessForOrder(order);
+        } catch (e) {
+            console.error('ensureDownloadAccessForOrder failed:', e.message);
+        }
+    }
 
     const populatedOrder = await Order.findById(order._id)
         .populate('products.product', 'title price images type vendor')

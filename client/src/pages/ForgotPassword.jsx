@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { Mail, CheckCircle } from 'lucide-react';
+import api from '../services/api';
 
 const ForgotPassword = () => {
     const [email, setEmail] = useState('');
@@ -9,15 +9,20 @@ const ForgotPassword = () => {
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState('');
 
+    const GMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError('');
+        if (!GMAIL_REGEX.test(email.trim())) {
+            setError('Only Gmail addresses are allowed');
+            setLoading(false);
+            return;
+        }
 
         try {
-            const res = await axios.post('http://localhost:3001/api/auth/forgotpassword', { email });
-            // In dev mode, we log token in console or res.data
-            // For UI feedback:
+            await api.post('/auth/forgotpassword', { email });
             setSuccess(true);
         } catch (err) {
             setError(err.response?.data?.message || 'Something went wrong');
@@ -35,8 +40,7 @@ const ForgotPassword = () => {
                     </div>
                     <h2 className="text-2xl font-bold text-white">Check your email</h2>
                     <p className="text-gray-400">
-                        We've sent a password reset link to your email address.
-                        (Mock: Check server console for link)
+                        We've sent a password reset link to <strong className="text-white">{email}</strong>. Check your inbox and spam folder.
                     </p>
                     <Link to="/login" className="text-blue-400 hover:text-blue-300 block">
                         Back to Login
@@ -62,7 +66,7 @@ const ForgotPassword = () => {
                         <input
                             type="email"
                             required
-                            placeholder="Email Address"
+                            placeholder="Gmail address (e.g. you@gmail.com)"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="w-full bg-dark-800 border border-white/10 rounded-lg pl-12 pr-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"

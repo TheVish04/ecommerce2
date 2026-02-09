@@ -10,7 +10,9 @@ const {
     getServices,
     updateService,
     getCommissions,
-    getUsers
+    getUsers,
+    getDownloadAccessList,
+    revokeDownloadAccess
 } = require('../controllers/adminController');
 const {
     getAdminCategories,
@@ -40,5 +42,7 @@ router.get('/services', getServices);
 router.patch('/services/:id', updateService);
 router.get('/commissions', getCommissions);
 router.get('/users', getUsers);
+router.get('/download-access', getDownloadAccessList);
+router.put('/download-access/:id/revoke', revokeDownloadAccess);
 
 module.exports = router;

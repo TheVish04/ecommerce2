@@ -2,7 +2,48 @@ const asyncHandler = require('express-async-handler');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Service = require('../models/Service');
+const DownloadAccess = require('../models/DownloadAccess');
 const { sendOrderConfirmationEmail } = require('../utils/email');
+
+async function ensureDownloadAccessForOrder(order) {
+    if (order.paymentStatus !== 'paid') return;
+    const buyerId = order.buyer?._id || order.buyer;
+    const digitalProducts = [];
+
+    const addIfDigital = async (productRef) => {
+        const p = typeof productRef === 'object' && productRef?.type ? productRef : await Product.findById(productRef).lean();
+        if (p && p.type === 'digital') digitalProducts.push(p);
+    };
+
+    for (const item of order.products || []) {
+        if (item.product) await addIfDigital(item.product);
+    }
+    for (const li of order.lineItems || []) {
+        if (li.itemType === 'product' && li.product) await addIfDigital(li.product);
+    }
+
+    const seen = new Set();
+    for (const product of digitalProducts) {
+        const productId = product._id?.toString?.() || product._id;
+        if (seen.has(productId)) continue;
+        seen.add(productId);
+        const existing = await DownloadAccess.findOne({ user: buyerId, order: order._id, product: productId });
+        if (existing) continue;
+        const maxDownloads = product.downloadLimit ?? null;
+        let expiresAt = null;
+        if (product.downloadExpiryDays) {
+            expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + product.downloadExpiryDays);
+        }
+        await DownloadAccess.create({
+            user: buyerId,
+            order: order._id,
+            product: productId,
+            maxDownloads,
+            expiresAt
+        });
+    }
+}
 
 async function buildOrderFromItems(items, buyerId, shippingAddress = {}) {
     let totalAmount = 0;
@@ -281,36 +322,69 @@ function escapeHtml(str) {
         .replace(/"/g, '&quot;');
 }
 
-// @desc    Get secure download URL for digital product in order
+// @desc    Get secure download URL for digital product in order (controlled access)
 // @route   GET /api/orders/:orderId/download/:productId
 // @access  Private
 const getDownloadUrl = asyncHandler(async (req, res) => {
     const { orderId, productId } = req.params;
     const userId = req.user.id;
 
-    const order = await Order.findById(orderId).populate('products.product');
+    const order = await Order.findById(orderId)
+        .populate('products.product')
+        .populate('lineItems.product');
     if (!order) {
         res.status(404);
         throw new Error('Order not found');
     }
 
-    if (String(order.buyer) !== String(userId)) {
+    const buyerId = order.buyer?._id?.toString?.() || order.buyer?.toString?.();
+    if (buyerId !== userId) {
         res.status(403);
         throw new Error('Not authorized to download from this order');
     }
 
-    const orderItem = order.products.find(
-        p => p.product && String(p.product._id) === String(productId)
-    );
-    if (!orderItem) {
+    let product = null;
+    const fromProducts = order.products?.find(p => p.product && String(p.product._id) === String(productId));
+    const fromLineItems = order.lineItems?.find(li => li.itemType === 'product' && li.product && String(li.product._id) === String(productId));
+
+    if (fromProducts?.product) product = fromProducts.product;
+    else if (fromLineItems?.product) product = fromLineItems.product;
+
+    if (!product) {
         res.status(404);
         throw new Error('Product not found in this order');
     }
-
-    const product = orderItem.product;
     if (product.type !== 'digital') {
         res.status(400);
         throw new Error('This product is not a digital download');
+    }
+
+    let access = await DownloadAccess.findOne({ user: userId, order: orderId, product: productId });
+    if (!access) {
+        if (order.paymentStatus !== 'paid') {
+            res.status(403);
+            throw new Error('Download access requires payment confirmation');
+        }
+        access = await DownloadAccess.create({
+            user: userId,
+            order: orderId,
+            product: productId,
+            maxDownloads: product.downloadLimit ?? null,
+            expiresAt: product.downloadExpiryDays ? (() => { const d = new Date(); d.setDate(d.getDate() + product.downloadExpiryDays); return d; })() : null
+        });
+    }
+
+    if (access.isRevoked) {
+        res.status(403);
+        throw new Error('Download access has been revoked');
+    }
+    if (access.expiresAt && new Date() > access.expiresAt) {
+        res.status(403);
+        throw new Error('Download access has expired');
+    }
+    if (access.maxDownloads != null && access.downloadCount >= access.maxDownloads) {
+        res.status(403);
+        throw new Error('Download limit reached');
     }
 
     const downloadUrl = product.downloadUrl || product.images?.[0];
@@ -319,12 +393,18 @@ const getDownloadUrl = asyncHandler(async (req, res) => {
         throw new Error('Download not available for this product');
     }
 
+    access.downloadCount += 1;
+    access.lastDownloadAt = new Date();
+    await access.save();
+
     const ext = (downloadUrl.match(/\.(jpg|jpeg|png|gif|webp|pdf|zip)(\?|$)/i) || [])[1] || 'file';
     const fileName = `${product.title.replace(/[^a-z0-9]/gi, '_')}.${ext}`;
 
     res.json({
         url: downloadUrl,
-        fileName
+        fileName,
+        remainingDownloads: access.maxDownloads != null ? Math.max(0, access.maxDownloads - access.downloadCount) : null,
+        expiresAt: access.expiresAt || null
     });
 });
 
@@ -372,5 +452,6 @@ module.exports = {
     getInvoice,
     getDownloadUrl,
     updateOrderStatus,
-    buildOrderFromItems
+    buildOrderFromItems,
+    ensureDownloadAccessForOrder
 };

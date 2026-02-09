@@ -4,8 +4,9 @@ const crypto = require('crypto');
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
 const generateToken = require('../utils/generateToken');
+const { sendPasswordResetEmail, sendVerificationOtpEmail } = require('../utils/email');
 
-// @desc    Register new user
+// @desc    Register new user (sends OTP for email verification)
 // @route   POST /api/auth/register
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
@@ -16,7 +17,6 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new Error('Please add all fields');
     }
 
-    // Check if user exists
     const userExists = await User.findOne({ email });
 
     if (userExists) {
@@ -30,6 +30,7 @@ const registerUser = asyncHandler(async (req, res) => {
         email,
         password,
         role: userRole,
+        isEmailVerified: false
     };
 
     if (userRole === 'vendor') {
@@ -38,19 +39,119 @@ const registerUser = asyncHandler(async (req, res) => {
 
     const user = await User.create(userData);
 
-    if (user) {
-        res.status(201).json({
-            _id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            vendorStatus: user.vendorStatus,
-            token: generateToken(user._id),
-        });
-    } else {
+    if (!user) {
         res.status(400);
         throw new Error('Invalid user data');
     }
+
+    const otp = user.getEmailVerificationOtp();
+    await user.save({ validateBeforeSave: false });
+
+    try {
+        await sendVerificationOtpEmail(user, otp);
+    } catch (err) {
+        await User.findByIdAndDelete(user._id);
+        res.status(500);
+        throw new Error('Failed to send verification email');
+    }
+
+    res.status(201).json({
+        needsVerification: true,
+        email: user.email,
+        message: 'Verification OTP sent to your email'
+    });
+});
+
+// @desc    Verify email with OTP
+// @route   POST /api/auth/verify-email
+// @access  Public
+const verifyEmailOtp = asyncHandler(async (req, res) => {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+        res.status(400);
+        throw new Error('Email and OTP are required');
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+        res.status(404);
+        throw new Error('User not found');
+    }
+
+    if (user.isEmailVerified) {
+        res.status(400);
+        throw new Error('Email is already verified');
+    }
+
+    if (!user.emailVerificationOtp || !user.emailVerificationOtpExpire) {
+        res.status(400);
+        throw new Error('OTP expired. Please request a new one.');
+    }
+
+    if (user.emailVerificationOtpExpire < Date.now()) {
+        user.emailVerificationOtp = undefined;
+        user.emailVerificationOtpExpire = undefined;
+        await user.save({ validateBeforeSave: false });
+        res.status(400);
+        throw new Error('OTP expired. Please request a new one.');
+    }
+
+    if (user.emailVerificationOtp !== String(otp).trim()) {
+        res.status(400);
+        throw new Error('Invalid OTP');
+    }
+
+    user.isEmailVerified = true;
+    user.emailVerificationOtp = undefined;
+    user.emailVerificationOtpExpire = undefined;
+    await user.save({ validateBeforeSave: false });
+
+    res.json({
+        _id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        vendorStatus: user.vendorStatus,
+        token: generateToken(user._id)
+    });
+});
+
+// @desc    Resend verification OTP
+// @route   POST /api/auth/resend-otp
+// @access  Public
+const resendOtp = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        res.status(400);
+        throw new Error('Email is required');
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+        res.status(404);
+        throw new Error('User not found');
+    }
+
+    if (user.isEmailVerified) {
+        res.status(400);
+        throw new Error('Email is already verified');
+    }
+
+    const otp = user.getEmailVerificationOtp();
+    await user.save({ validateBeforeSave: false });
+
+    try {
+        await sendVerificationOtpEmail(user, otp);
+    } catch (err) {
+        res.status(500);
+        throw new Error('Failed to send verification email');
+    }
+
+    res.json({ success: true, message: 'New OTP sent to your email' });
 });
 
 // @desc    Authenticate a user
@@ -59,22 +160,30 @@ const registerUser = asyncHandler(async (req, res) => {
 const loginUser = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
 
-    // Check for user email
     const user = await User.findOne({ email });
 
-    if (user && (await user.matchPassword(password))) {
-        res.json({
-            _id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            vendorStatus: user.vendorStatus,
-            token: generateToken(user._id),
-        });
-    } else {
+    if (!user || !(await user.matchPassword(password))) {
         res.status(401);
         throw new Error('Invalid credentials');
     }
+
+    // Block only if explicitly unverified (new signups); legacy users without field can login
+    if (user.isEmailVerified === false) {
+        return res.status(200).json({
+            needsVerification: true,
+            email: user.email,
+            message: 'Please verify your email to continue'
+        });
+    }
+
+    res.json({
+        _id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        vendorStatus: user.vendorStatus,
+        token: generateToken(user._id),
+    });
 });
 
 // @desc    Get user data
@@ -100,15 +209,9 @@ const forgotPassword = asyncHandler(async (req, res) => {
 
     await user.save({ validateBeforeSave: false });
 
-    // In a real app, send email here
-    // const resetUrl = `${req.protocol}://${req.get('host')}/resetpassword/${resetToken}`;
-    const resetUrl = `http://localhost:5173/resetpassword/${resetToken}`;
-
     try {
-        // Mock email sending
-        console.log(`Mock Email: Reset Password Link: ${resetUrl}`);
-
-        res.status(200).json({ success: true, data: 'Email sent', resetToken: resetToken }); // Sending token in response for dev testing
+        await sendPasswordResetEmail(user, resetToken);
+        res.status(200).json({ success: true, message: 'Password reset email sent' });
     } catch (err) {
         user.resetPasswordToken = undefined;
         user.resetPasswordExpire = undefined;
@@ -157,5 +260,7 @@ module.exports = {
     loginUser,
     getMe,
     forgotPassword,
-    resetPassword
+    resetPassword,
+    verifyEmailOtp,
+    resendOtp
 };

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Lock, Loader2 } from 'lucide-react';
+import api from '../services/api';
 
 const ResetPassword = () => {
     const { resettoken } = useParams();
@@ -12,10 +12,16 @@ const ResetPassword = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
+    const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
 
+        if (!STRONG_PASSWORD_REGEX.test(password)) {
+            setError('Password must be 8+ chars with uppercase, lowercase, number & special char (@$!%*?&)');
+            return;
+        }
         if (password !== confirmPassword) {
             setError('Passwords do not match');
             return;
@@ -24,9 +30,13 @@ const ResetPassword = () => {
         setLoading(true);
 
         try {
-            await axios.put(`http://localhost:3001/api/auth/resetpassword/${resettoken}`, { password });
-            alert('Password reset successful! Logging you in...');
-            navigate('/login');
+            const res = await api.put(`/auth/resetpassword/${resettoken}`, { password });
+            if (res.data?.token) {
+                localStorage.setItem('token', res.data.token);
+                window.location.href = '/dashboard';
+            } else {
+                navigate('/login');
+            }
         } catch (err) {
             setError(err.response?.data?.message || 'Invalid or expired token');
         } finally {
@@ -40,6 +50,7 @@ const ResetPassword = () => {
                 <div className="text-center">
                     <h2 className="text-3xl font-bold text-white mb-2">Reset Password</h2>
                     <p className="text-gray-400">Enter your new password below</p>
+                    <p className="text-gray-500 text-xs -mt-4">Min 8 chars, include uppercase, lowercase, number & special char (@$!%*?&)</p>
                 </div>
 
                 {error && <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-3 rounded-lg text-sm text-center">{error}</div>}

@@ -41,16 +41,17 @@ export const AuthProvider = ({ children }) => {
     const login = async (email, password) => {
         try {
             const response = await api.post('/auth/login', { email, password });
+            if (response.data.needsVerification) {
+                return { needsVerification: true, email: response.data.email };
+            }
             const { token, ...userData } = response.data;
-
             if (token) {
                 localStorage.setItem('token', token);
                 setToken(token);
-                setCurrentUser(userData); // Includes role
+                setCurrentUser(userData);
                 return response.data;
-            } else {
-                throw new Error('No token received');
             }
+            throw new Error('Login failed');
         } catch (error) {
             throw error.response?.data?.message || 'Login failed';
         }
@@ -59,19 +60,43 @@ export const AuthProvider = ({ children }) => {
     const signup = async (name, email, password, role) => {
         try {
             const response = await api.post('/auth/register', { name, email, password, role });
+            if (response.data.needsVerification) {
+                return { needsVerification: true, email: response.data.email };
+            }
             const { token, ...userData } = response.data;
-
             if (token) {
                 localStorage.setItem('token', token);
                 setToken(token);
                 setCurrentUser(userData);
                 return response.data;
-            } else {
-                throw new Error('No token received');
             }
+            throw new Error('No token received');
         } catch (error) {
-            console.error("Signup error:", error); // Debugging
             throw error.response?.data?.message || 'Signup failed';
+        }
+    };
+
+    const verifyEmail = async (email, otp) => {
+        try {
+            const response = await api.post('/auth/verify-email', { email, otp });
+            const { token, ...userData } = response.data;
+            if (token) {
+                localStorage.setItem('token', token);
+                setToken(token);
+                setCurrentUser(userData);
+                return response.data;
+            }
+            throw new Error('Verification failed');
+        } catch (error) {
+            throw error.response?.data?.message || 'Invalid or expired OTP';
+        }
+    };
+
+    const resendOtp = async (email) => {
+        try {
+            await api.post('/auth/resend-otp', { email });
+        } catch (error) {
+            throw error.response?.data?.message || 'Failed to resend OTP';
         }
     };
 
@@ -87,6 +112,8 @@ export const AuthProvider = ({ children }) => {
         token,
         login,
         signup,
+        verifyEmail,
+        resendOtp,
         logout,
         loading
     };

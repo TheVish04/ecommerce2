@@ -4,6 +4,7 @@ const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Service = require('../models/Service');
 const Commission = require('../models/Commission');
+const DownloadAccess = require('../models/DownloadAccess');
 
 // @desc    Admin dashboard analytics
 // @route   GET /api/admin/dashboard
@@ -256,6 +257,65 @@ const getUsers = asyncHandler(async (req, res) => {
     });
 });
 
+// @desc    List all download access records (admin)
+// @route   GET /api/admin/download-access
+// @access  Private/Admin
+const getDownloadAccessList = asyncHandler(async (req, res) => {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const skip = (page - 1) * limit;
+    const isRevoked = req.query.revoked;
+    const userId = req.query.userId;
+
+    let query = {};
+    if (isRevoked === 'true') query.isRevoked = true;
+    else if (isRevoked === 'false') query.isRevoked = false;
+    if (userId) query.user = userId;
+
+    const [accesses, total] = await Promise.all([
+        DownloadAccess.find(query)
+            .populate('user', 'name email')
+            .populate('product', 'title type')
+            .populate('order', '_id totalAmount paymentStatus')
+            .sort('-createdAt')
+            .skip(skip)
+            .limit(limit)
+            .lean(),
+        DownloadAccess.countDocuments(query)
+    ]);
+
+    res.json({
+        accesses,
+        pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    });
+});
+
+// @desc    Revoke download access for a digital product
+// @route   PUT /api/admin/download-access/:id/revoke
+// @access  Private/Admin
+const revokeDownloadAccess = asyncHandler(async (req, res) => {
+    const access = await DownloadAccess.findById(req.params.id);
+    if (!access) {
+        res.status(404);
+        throw new Error('Download access not found');
+    }
+    if (access.isRevoked) {
+        res.status(400);
+        throw new Error('Download access is already revoked');
+    }
+    access.isRevoked = true;
+    access.revokedAt = new Date();
+    access.revokedBy = req.user.id;
+    await access.save();
+
+    const updated = await DownloadAccess.findById(access._id)
+        .populate('user', 'name email')
+        .populate('product', 'title type')
+        .populate('order', '_id totalAmount')
+        .lean();
+    res.json(updated);
+});
+
 module.exports = {
     getDashboard,
     getOrders,
@@ -266,5 +326,7 @@ module.exports = {
     getServices,
     updateService,
     getCommissions,
-    getUsers
+    getUsers,
+    getDownloadAccessList,
+    revokeDownloadAccess
 };

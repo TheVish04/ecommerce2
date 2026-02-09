@@ -18,7 +18,7 @@ const userSchema = mongoose.Schema({
     password: {
         type: String,
         required: [true, 'Please add a password'],
-        minlength: 6
+        minlength: [8, 'Password must be at least 8 characters']
     },
     role: {
         type: String,
@@ -55,7 +55,13 @@ const userSchema = mongoose.Schema({
         isDefault: { type: Boolean, default: false }
     }],
     resetPasswordToken: String,
-    resetPasswordExpire: Date
+    resetPasswordExpire: Date,
+    isEmailVerified: {
+        type: Boolean,
+        default: false
+    },
+    emailVerificationOtp: String,
+    emailVerificationOtpExpire: Date
 }, {
     timestamps: true
 });
@@ -81,6 +87,13 @@ userSchema.methods.getResetPasswordToken = function () {
         .digest('hex');
     this.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
     return resetToken;
+};
+
+userSchema.methods.getEmailVerificationOtp = function () {
+    const otp = String(Math.floor(100000 + Math.random() * 900000)); // 6-digit OTP
+    this.emailVerificationOtp = otp;
+    this.emailVerificationOtpExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+    return otp;
 };
 
 module.exports = mongoose.model('User', userSchema);

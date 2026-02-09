@@ -85,4 +85,73 @@ const sendCommissionPaymentEmail = async (commission) => {
     });
 };
 
-module.exports = { sendOrderConfirmationEmail, sendCommissionPaymentEmail };
+const buildPasswordResetEmailHtml = (user, resetUrl) => {
+    const name = user.name || 'User';
+    const expiresIn = '10 minutes';
+    return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Reset Your Password</title></head>
+<body style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <h1 style="color: #1e40af;">Reset Your Password</h1>
+    <p>Hi ${name},</p>
+    <p>You requested a password reset for your KalaVPP account.</p>
+    <p>Click the button below to set a new password. This link will expire in ${expiresIn}.</p>
+    <p style="margin: 28px 0;">
+        <a href="${resetUrl}" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">Reset Password</a>
+    </p>
+    <p style="color: #6b7280; font-size: 14px;">Or copy this link: <a href="${resetUrl}">${resetUrl}</a></p>
+    <p style="color: #6b7280; font-size: 12px;">If you didn't request this, you can safely ignore this email.</p>
+    <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;">
+    <p style="color: #6b7280; font-size: 12px;">— KalaVPP</p>
+</body>
+</html>`;
+};
+
+const sendPasswordResetEmail = async (user, resetToken) => {
+    if (!transporter || !user?.email) {
+        throw new Error('Email service is not configured');
+    }
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const resetUrl = `${clientUrl}/resetpassword/${resetToken}`;
+    await transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@kalavpp.com',
+        to: user.email,
+        subject: 'Reset Your Password - KalaVPP',
+        html: buildPasswordResetEmailHtml(user, resetUrl)
+    });
+};
+
+const buildVerificationOtpEmailHtml = (user, otp) => {
+    const name = user.name || 'User';
+    const expiresIn = '10 minutes';
+    return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Verify Your Email</title></head>
+<body style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <h1 style="color: #1e40af;">Verify Your Email</h1>
+    <p>Hi ${name},</p>
+    <p>Thanks for signing up for KalaVPP! Use the OTP below to verify your email address.</p>
+    <p style="margin: 28px 0; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #1e40af; font-family: monospace;">${otp}</p>
+    <p style="color: #6b7280; font-size: 14px;">This code will expire in ${expiresIn}.</p>
+    <p style="color: #6b7280; font-size: 12px;">If you didn't create an account, you can safely ignore this email.</p>
+    <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;">
+    <p style="color: #6b7280; font-size: 12px;">— KalaVPP</p>
+</body>
+</html>`;
+};
+
+const sendVerificationOtpEmail = async (user, otp) => {
+    if (!transporter || !user?.email) {
+        throw new Error('Email service is not configured');
+    }
+    await transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@kalavpp.com',
+        to: user.email,
+        subject: 'Verify Your Email - KalaVPP',
+        html: buildVerificationOtpEmailHtml(user, otp)
+    });
+};
+
+module.exports = { sendOrderConfirmationEmail, sendCommissionPaymentEmail, sendPasswordResetEmail, sendVerificationOtpEmail };
