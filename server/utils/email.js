@@ -16,20 +16,28 @@ const createTransporter = () => {
         return null;
     }
 
-    const port = parseInt(process.env.SMTP_PORT || '587');
-    const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+    const isGmail = (process.env.SMTP_HOST || '').includes('gmail');
 
-    console.log(`Creating email transporter: Host=${process.env.SMTP_HOST} Port=${port} Secure=${secure} User=${process.env.SMTP_USER || 'None'}`);
-
-    return nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: port,
-        secure: secure,
+    // Config from working reference
+    const config = {
+        service: isGmail ? 'gmail' : undefined,
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: 465, // Force 465 as preferred by user
+        secure: true, // Force true
         auth: process.env.SMTP_USER ? {
             user: process.env.SMTP_USER,
             pass: process.env.SMTP_PASS
-        } : undefined
-    });
+        } : undefined,
+        debug: true,
+        logger: true,
+        tls: {
+            rejectUnauthorized: false // Crucial for some cloud environments
+        }
+    };
+
+    console.log(`Creating email transporter: Service=${config.service} Host=${config.host} Port=${config.port} Secure=${config.secure}`);
+
+    return nodemailer.createTransport(config);
 };
 
 const verifyConnection = async () => {
