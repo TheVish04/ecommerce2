@@ -15,7 +15,7 @@ const getVendorProducts = asyncHandler(async (req, res) => {
 // @route   GET /api/products/:id
 // @access  Public (or Private for vendor edit)
 const getProductById = asyncHandler(async (req, res) => {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findById(req.params.id).populate('category', 'name slug');
 
     if (product) {
         // If inactive, only allow vendor to view

@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Upload, X, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import axios from 'axios';
-import { useEffect } from 'react';
+import api from '../../services/api';
 
 // Constants for T-Shirt Options
 const TSHIRT_STYLES = [
@@ -54,26 +53,25 @@ const AddProduct = () => {
     const [existingImages, setExistingImages] = useState([]);
     const [previews, setPreviews] = useState([]);
 
-    // Fetch product details if in edit mode
-    // We'll use useEffect to load data
-    // This is a simplified fetch, ideally fetch in a separate useEffect
+    const [categories, setCategories] = useState([]);
 
-    // Let's add useEffect for fetching
     useEffect(() => {
-        if (isEditMode) {
-            fetchProductDetails();
-        }
+        api.get('/categories?type=product').then(r => setCategories(r.data)).catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        if (isEditMode) fetchProductDetails();
     }, [id]);
 
     const fetchProductDetails = async () => {
         try {
-            const { data } = await axios.get(`http://localhost:3001/api/products/${id}`);
+            const { data } = await api.get(`/products/${id}`);
 
             setFormData({
                 title: data.title || '',
                 description: data.description || '',
                 price: data.price || '',
-                category: data.category || '',
+                category: data.category?._id || data.category || '',
                 subCategory: data.subCategory || '',
                 type: data.type || 'physical',
                 stock: data.stock || '1',
@@ -192,22 +190,9 @@ const AddProduct = () => {
         images.forEach(image => data.append('images', image));
 
         try {
-            const token = localStorage.getItem('token');
-            const url = isEditMode
-                ? `http://localhost:3001/api/products/${id}`
-                : 'http://localhost:3001/api/products';
-
+            const url = isEditMode ? `/products/${id}` : '/products';
             const method = isEditMode ? 'put' : 'post';
-
-            await axios({
-                method,
-                url,
-                data,
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'multipart/form-data'
-                }
-            });
+            await api.request({ method, url, data, headers: { 'Content-Type': 'multipart/form-data' } });
 
             navigate('/vendor/products');
         } catch (error) {
@@ -269,21 +254,22 @@ const AddProduct = () => {
                             name="category"
                             required
                             className="w-full bg-dark-800 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500 transition-colors"
-                            value={formData.category} // Added binding
+                            value={formData.category}
                             onChange={handleChange}
                         >
                             <option value="">Select Category</option>
-                            <option value="art">Art & Paintings</option>
-                            <option value="Merchandise">Merchandise</option>
-                            <option value="digital">Digital Assets</option>
-                            <option value="sculpture">Sculptures</option>
-                            <option value="service">Services / Commissions</option>
+                            {categories.map(c => (
+                                <option key={c._id} value={c._id}>{c.name}</option>
+                            ))}
                         </select>
+                        {categories.length === 0 && (
+                            <p className="text-xs text-amber-400">No categories. Admin must add categories first.</p>
+                        )}
                     </div>
                 </div>
 
                 {/* Sub Category for Merchandise */}
-                {formData.category === 'Merchandise' && (
+                {(formData.category && categories.find(c => c._id === formData.category)?.slug === 'merchandise') && (
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-400">Sub-Category</label>
                         <select

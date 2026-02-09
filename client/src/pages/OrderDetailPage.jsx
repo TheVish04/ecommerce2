@@ -203,37 +203,50 @@ const OrderDetailPage = () => {
                     </div>
 
                     <div className="divide-y divide-gray-100 dark:divide-white/5">
-                        {(order.products || []).map((item) => {
-                            const product = item.product;
-                            const isDigital = product?.type === 'digital';
-                            return (
-                                <div key={item.product?._id || item.product} className="p-6 flex gap-4 items-center">
-                                    <div className="w-20 h-20 rounded-lg bg-gray-100 dark:bg-dark-900 overflow-hidden shrink-0">
-                                        <img
-                                            src={product?.images?.[0] || 'https://via.placeholder.com/80'}
-                                            alt={product?.title}
-                                            className="w-full h-full object-cover"
-                                        />
+                        {(() => {
+                            const items = (order.lineItems && order.lineItems.length > 0)
+                                ? order.lineItems.map(li => ({
+                                    product: li.product,
+                                    service: li.service,
+                                    quantity: li.quantity,
+                                    unitPrice: li.unitPrice,
+                                    isService: !!li.service
+                                }))
+                                : (order.products || []).map(p => ({ product: p.product, quantity: p.quantity, unitPrice: p.product?.price, isService: false }));
+
+                            return items.map((item, idx) => {
+                                const isService = item.isService;
+                                const title = item.product?.title || item.service?.title || 'Unknown';
+                                const img = item.product?.images?.[0] || item.service?.coverImage || 'https://via.placeholder.com/80';
+                                const isDigital = !isService && item.product?.type === 'digital';
+                                const lineTotal = (item.unitPrice || 0) * (item.quantity || 1);
+                                const key = item.product?._id || item.service?._id || idx;
+
+                                return (
+                                    <div key={key} className="p-6 flex gap-4 items-center">
+                                        <div className="w-20 h-20 rounded-lg bg-gray-100 dark:bg-dark-900 overflow-hidden shrink-0">
+                                            <img src={img} alt={title} className="w-full h-full object-cover" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-semibold truncate">{title}{isService && <span className="ml-2 text-xs font-normal text-purple-500">(Service)</span>}</h3>
+                                            <p className="text-gray-500 text-sm">
+                                                Qty: {item.quantity} × ₹{(item.unitPrice || 0).toLocaleString()} = ₹{lineTotal.toLocaleString()}
+                                            </p>
+                                        </div>
+                                        {isDigital && (
+                                            <button
+                                                onClick={() => handleDownload(item.product._id, item.product.title)}
+                                                disabled={!!downloading}
+                                                className="shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+                                            >
+                                                {downloading === item.product._id ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                                                Download
+                                            </button>
+                                        )}
                                     </div>
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="font-semibold truncate">{product?.title || 'Unknown'}</h3>
-                                        <p className="text-gray-500 text-sm">
-                                            Qty: {item.quantity} × ₹{product?.price?.toLocaleString()} = ₹{((product?.price || 0) * (item.quantity || 1)).toLocaleString()}
-                                        </p>
-                                    </div>
-                                    {isDigital && (
-                                        <button
-                                            onClick={() => handleDownload(product._id, product.title)}
-                                            disabled={!!downloading}
-                                            className="shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
-                                        >
-                                            {downloading === product._id ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                                            Download
-                                        </button>
-                                    )}
-                                </div>
-                            );
-                        })}
+                                );
+                            });
+                        })()}
                     </div>
 
                     {addrStr !== '-' && (

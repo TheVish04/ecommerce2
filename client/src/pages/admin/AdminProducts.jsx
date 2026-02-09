@@ -5,9 +5,14 @@ import { toast } from 'react-hot-toast';
 
 const AdminProducts = () => {
     const [data, setData] = useState({ products: [], pagination: {} });
+    const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
     const [filters, setFilters] = useState({ status: '', category: '' });
+
+    useEffect(() => {
+        api.get('/categories?type=product').then(r => setCategories(r.data)).catch(() => {});
+    }, []);
 
     useEffect(() => {
         fetchProducts();
@@ -62,13 +67,16 @@ const AdminProducts = () => {
                         <option value="draft">Draft</option>
                         <option value="sold_out">Sold Out</option>
                     </select>
-                    <input
-                        type="text"
-                        placeholder="Category"
+                    <select
                         value={filters.category}
                         onChange={e => setFilters(f => ({ ...f, category: e.target.value }))}
-                        className="bg-dark-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white w-32"
-                    />
+                        className="bg-dark-800 border border-white/10 rounded-lg px-3 py-2 text-sm text-white min-w-[140px]"
+                    >
+                        <option value="">All Categories</option>
+                        {categories.map(c => (
+                            <option key={c._id} value={c._id}>{c.name}</option>
+                        ))}
+                    </select>
                 </div>
             </div>
 
@@ -103,7 +111,9 @@ const AdminProducts = () => {
                                         </td>
                                         <td className="px-6 py-4 font-medium text-white max-w-[200px] truncate">{product.title}</td>
                                         <td className="px-6 py-4 text-gray-400">{product.vendor?.name || '-'}</td>
-                                        <td className="px-6 py-4 text-gray-400">{product.category}</td>
+                                        <td className="px-6 py-4 text-gray-400">
+                                            {product.category?.name || product.categorySlug || product.category || '-'}
+                                        </td>
                                         <td className="px-6 py-4 font-mono text-emerald-400">₹{product.price}</td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2 py-1 rounded-full text-xs ${product.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}>

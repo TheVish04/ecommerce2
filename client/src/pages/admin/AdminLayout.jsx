@@ -8,7 +8,8 @@ import {
     Users,
     Briefcase,
     Shield,
-    Home
+    Home,
+    FolderTree
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -21,6 +22,7 @@ const AdminLayout = () => {
         { name: 'Dashboard', icon: LayoutDashboard, path: '/admin/dashboard' },
         { name: 'Orders', icon: ShoppingCart, path: '/admin/orders' },
         { name: 'Vendors', icon: Shield, path: '/admin/vendors' },
+        { name: 'Categories', icon: FolderTree, path: '/admin/categories' },
         { name: 'Products', icon: Package, path: '/admin/products' },
         { name: 'Services', icon: Briefcase, path: '/admin/services' },
         { name: 'Commissions', icon: MessageSquare, path: '/admin/commissions' },

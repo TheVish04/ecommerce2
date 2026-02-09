@@ -34,6 +34,12 @@ const updateCommissionStatusRules = () => [
         .withMessage('Invalid status')
 ];
 
+const verifyCommissionPaymentRules = () => [
+    body('razorpay_order_id').notEmpty().withMessage('Razorpay order ID is required'),
+    body('razorpay_payment_id').notEmpty().withMessage('Razorpay payment ID is required'),
+    body('razorpay_signature').notEmpty().withMessage('Razorpay signature is required')
+];
+
 const uploadDeliveryRules = () => [
     body('deliveryFiles')
         .optional()
@@ -46,5 +52,6 @@ const uploadDeliveryRules = () => [
 module.exports = {
     createCommissionRules,
     updateCommissionStatusRules,
-    uploadDeliveryRules
+    uploadDeliveryRules,
+    verifyCommissionPaymentRules
 };

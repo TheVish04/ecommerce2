@@ -36,6 +36,7 @@ import VendorProfile from './pages/vendor/VendorProfile';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminVendors from './pages/admin/AdminVendors';
+import AdminCategories from './pages/admin/AdminCategories';
 import AdminProducts from './pages/admin/AdminProducts';
 import AdminServices from './pages/admin/AdminServices';
 import AdminCommissions from './pages/admin/AdminCommissions';
@@ -129,6 +130,7 @@ function App() {
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="orders" element={<AdminOrders />} />
           <Route path="vendors" element={<AdminVendors />} />
+          <Route path="categories" element={<AdminCategories />} />
           <Route path="products" element={<AdminProducts />} />
           <Route path="services" element={<AdminServices />} />
           <Route path="commissions" element={<AdminCommissions />} />

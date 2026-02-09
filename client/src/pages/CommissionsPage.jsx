@@ -1,29 +1,79 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from '../components/Navbar';
-import axios from 'axios';
-import { Loader2, Calendar, Clock, CheckCircle, XCircle, Package, Send } from 'lucide-react';
+import api from '../services/api';
+import toast from 'react-hot-toast';
+import { Loader2, Calendar, Clock, CheckCircle, XCircle, Package, CreditCard } from 'lucide-react';
+import Button from '../components/Button';
 
 const CommissionsPage = () => {
     const [commissions, setCommissions] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [payingId, setPayingId] = useState(null);
+
+    const fetchCommissions = useCallback(async () => {
+        try {
+            const res = await api.get('/commissions?role=customer');
+            setCommissions(res.data);
+        } catch (error) {
+            console.error("Error fetching commissions", error);
+            toast.error('Failed to load commissions');
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        const fetchCommissions = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                const res = await axios.get('http://localhost:3001/api/commissions?role=customer', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                setCommissions(res.data);
-            } catch (error) {
-                console.error("Error fetching commissions", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchCommissions();
-    }, []);
+    }, [fetchCommissions]);
+
+    const handlePayNow = async (commission) => {
+        setPayingId(commission._id);
+        try {
+            const { data } = await api.post(`/commissions/${commission._id}/initiate-payment`);
+            const { razorpayOrderId, amount, currency, key } = data;
+
+            if (!window.Razorpay) {
+                toast.error('Payment gateway is loading. Please try again.');
+                setPayingId(null);
+                return;
+            }
+
+            const rzp = new window.Razorpay({
+                key,
+                amount,
+                currency,
+                name: 'KalaVPP',
+                description: `Commission: ${commission.service?.title || 'Custom Art'}`,
+                order_id: razorpayOrderId,
+                prefill: { name: commission.customer?.name, email: commission.customer?.email },
+                theme: { color: '#7c3aed' },
+                handler: async (response) => {
+                    try {
+                        await api.post(`/commissions/${commission._id}/verify-payment`, {
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_signature: response.razorpay_signature
+                        });
+                        toast.success('Payment successful! Funds held in escrow until delivery.');
+                        fetchCommissions();
+                    } catch (err) {
+                        toast.error(err.response?.data?.message || 'Payment verification failed');
+                    } finally {
+                        setPayingId(null);
+                    }
+                },
+                modal: { ondismiss: () => setPayingId(null) }
+            });
+            rzp.on('payment.failed', () => {
+                toast.error('Payment failed. Please try again.');
+                setPayingId(null);
+            });
+            rzp.open();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Failed to initiate payment');
+            setPayingId(null);
+        }
+    };
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -67,7 +117,7 @@ const CommissionsPage = () => {
                 ) : commissions.length === 0 ? (
                     <div className="text-center py-20 bg-white dark:bg-dark-800 rounded-2xl border border-gray-100 dark:border-white/5">
                         <p className="text-gray-500 dark:text-gray-400 mb-4">You haven't requested any commissions yet.</p>
-                        <a href="/services" className="text-purple-500 hover:text-purple-400 font-semibold">Browse Services</a>
+                                        <a href="/services" className="text-purple-500 hover:text-purple-400 font-semibold underline">Browse Services</a>
                     </div>
                 ) : (
                     <div className="space-y-4">
@@ -87,9 +137,28 @@ const CommissionsPage = () => {
                                             </span>
                                         </div>
                                     </div>
-                                    <div className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 w-fit ${getStatusColor(commission.status)}`}>
-                                        {getStatusIcon(commission.status)}
-                                        <span className="capitalize">{commission.status.replace('_', ' ')}</span>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <div className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2 w-fit ${getStatusColor(commission.status)}`}>
+                                            {getStatusIcon(commission.status)}
+                                            <span className="capitalize">{commission.status.replace('_', ' ')}</span>
+                                        </div>
+                                        {commission.paymentStatus === 'paid' && (
+                                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/10 text-green-500">Paid · Escrow</span>
+                                        )}
+                                        {commission.status === 'accepted' && commission.paymentStatus === 'pending' && (
+                                            <Button
+                                                size="sm"
+                                                onClick={() => handlePayNow(commission)}
+                                                disabled={!!payingId}
+                                                className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white"
+                                            >
+                                                {payingId === commission._id ? (
+                                                    <><Loader2 size={14} className="animate-spin" /> Processing...</>
+                                                ) : (
+                                                    <><CreditCard size={14} /> Pay Now (₹{commission.budget})</>
+                                                )}
+                                            </Button>
+                                        )}
                                     </div>
                                 </div>
 

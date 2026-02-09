@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const Razorpay = require('razorpay');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
-const User = require('../models/User');
+const Service = require('../models/Service');
 const { sendOrderConfirmationEmail } = require('../utils/email');
 
 let razorpayInstance = null;
@@ -12,6 +12,32 @@ if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
         key_id: process.env.RAZORPAY_KEY_ID,
         key_secret: process.env.RAZORPAY_KEY_SECRET
     });
+}
+
+async function calculateOrderTotal(items) {
+    let totalAmount = 0;
+    for (const item of items) {
+        const { productId, serviceId, quantity = 1 } = item;
+        if (productId) {
+            const product = await Product.findById(productId);
+            if (!product || !product.isActive || product.status !== 'active') {
+                throw new Error(`Product "${product?.title || 'Unknown'}" is not available`);
+            }
+            if (product.type === 'physical' && product.stock < quantity) {
+                throw new Error(`Insufficient stock for "${product.title}"`);
+            }
+            totalAmount += product.price * quantity;
+        } else if (serviceId) {
+            const service = await Service.findById(serviceId);
+            if (!service || !service.isActive) {
+                throw new Error(`Service is not available`);
+            }
+            totalAmount += service.basePrice * quantity;
+        } else {
+            throw new Error('Invalid cart item: productId or serviceId required');
+        }
+    }
+    return totalAmount;
 }
 
 // @desc    Initiate payment - create Razorpay order
@@ -31,25 +57,7 @@ const initiatePayment = asyncHandler(async (req, res) => {
         throw new Error('Cart is empty');
     }
 
-    let totalAmount = 0;
-    for (const item of items) {
-        const { productId, quantity } = item;
-        if (!productId || !quantity || quantity < 1) {
-            res.status(400);
-            throw new Error('Invalid cart item');
-        }
-        const product = await Product.findById(productId);
-        if (!product || !product.isActive || product.status !== 'active') {
-            res.status(400);
-            throw new Error(`Product not available`);
-        }
-        if (product.type === 'physical' && product.stock < quantity) {
-            res.status(400);
-            throw new Error(`Insufficient stock for "${product.title}"`);
-        }
-        totalAmount += product.price * quantity;
-    }
-
+    const totalAmount = await calculateOrderTotal(items);
     const amountInPaise = Math.round(totalAmount * 100);
     if (amountInPaise < 100) {
         res.status(400);
@@ -95,46 +103,17 @@ const verifyPayment = asyncHandler(async (req, res) => {
         }
     }
 
-    let totalAmount = 0;
-    const orderItems = [];
-    for (const item of items) {
-        const { productId, quantity, options = {} } = item;
-        const product = await Product.findById(productId);
-        if (!product || !product.isActive || product.status !== 'active') {
-            res.status(400);
-            throw new Error(`Product "${product?.title || 'Unknown'}" is not available`);
-        }
-        if (product.type === 'physical' && product.stock < quantity) {
-            res.status(400);
-            throw new Error(`Insufficient stock for "${product.title}"`);
-        }
-        totalAmount += product.price * quantity;
-        orderItems.push({ product: productId, quantity, options });
-    }
-
-    const order = await Order.create({
-        buyer: buyerId,
-        products: orderItems,
-        totalAmount,
-        shippingAddress: shippingAddress || {},
-        status: 'pending',
-        paymentStatus: razorpayInstance ? 'paid' : 'pending',
-        razorpayOrderId: razorpay_order_id,
-        razorpayPaymentId: razorpay_payment_id
-    });
-
-    for (const item of items) {
-        const product = await Product.findById(item.productId);
-        if (product && product.type === 'physical') {
-            product.stock -= item.quantity;
-            product.sales = (product.sales || 0) + item.quantity;
-            if (product.stock <= 0) product.status = 'sold_out';
-            await product.save();
-        }
-    }
+    const { buildOrderFromItems } = require('./orderController');
+    const order = await buildOrderFromItems(items, buyerId, shippingAddress || {});
+    order.paymentStatus = razorpayInstance ? 'paid' : 'pending';
+    order.razorpayOrderId = razorpay_order_id;
+    order.razorpayPaymentId = razorpay_payment_id;
+    await order.save();
 
     const populatedOrder = await Order.findById(order._id)
         .populate('products.product', 'title price images type vendor')
+        .populate('lineItems.product', 'title price images type')
+        .populate('lineItems.service', 'title basePrice deliveryTime')
         .populate('buyer', 'name email');
 
     try {

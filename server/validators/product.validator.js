@@ -19,11 +19,15 @@ const createProductRules = () => [
         .isFloat({ min: 0 })
         .withMessage('Price must be a positive number'),
     body('category')
-        .trim()
         .notEmpty()
         .withMessage('Category is required')
-        .isLength({ max: 100 })
-        .withMessage('Category must be at most 100 characters'),
+        .custom((val) => {
+            const str = String(val).trim();
+            if (!str) throw new Error('Category is required');
+            if (/^[a-fA-F0-9]{24}$/.test(str)) return true;
+            if (str.length <= 100) return true;
+            throw new Error('Invalid category');
+        }),
     body('type')
         .notEmpty()
         .withMessage('Product type is required')
@@ -52,7 +56,7 @@ const updateProductRules = () => [
     body('title').optional().trim().notEmpty().withMessage('Title cannot be empty').isLength({ max: 200 }),
     body('description').optional().trim().notEmpty().withMessage('Description cannot be empty').isLength({ max: 5000 }),
     body('price').optional().isFloat({ min: 0 }).withMessage('Price must be a positive number'),
-    body('category').optional().trim().notEmpty().isLength({ max: 100 }),
+    body('category').optional().custom((val) => !val || /^[a-fA-F0-9]{24}$/.test(String(val)) || String(val).length <= 100),
     body('subCategory').optional().trim().isLength({ max: 100 }),
     body('type').optional().isIn(['physical', 'digital', 'service']),
     body('style').optional().trim().isLength({ max: 100 }),

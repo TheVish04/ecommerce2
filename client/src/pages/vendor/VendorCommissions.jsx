@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import { toast } from 'react-hot-toast';
-import { Upload, X, Check, XCircle, Play, CheckCircle } from 'lucide-react';
-import Button from '../../components/Button';
+import { Upload, X, Check, Play, CheckCircle } from 'lucide-react';
 import { uploadToCloudinary } from '../../utils/upload';
 
 const VendorCommissions = () => {
@@ -14,12 +13,7 @@ const VendorCommissions = () => {
     useEffect(() => {
         const fetchCommissions = async () => {
             try {
-                const token = localStorage.getItem('token');
-                const res = await axios.get('http://localhost:3001/api/commissions?role=vendor', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                // Client-side filter to be safe if backend returns all
-                // Assuming backend creates commissions with `vendor` field matching current user
+                const res = await api.get('/commissions?role=vendor');
                 setCommissions(res.data);
             } catch (error) {
                 console.error("Fetch error", error);
@@ -33,17 +27,13 @@ const VendorCommissions = () => {
 
     const handleStatusUpdate = async (id, newStatus) => {
         try {
-            const token = localStorage.getItem('token');
-            await axios.put(`http://localhost:3001/api/commissions/${id}/status`, { status: newStatus }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await api.put(`/commissions/${id}/status`, { status: newStatus });
             setCommissions(commissions.map(c =>
                 c._id === id ? { ...c, status: newStatus } : c
             ));
             toast.success(`Marked as ${newStatus}`);
         } catch (error) {
-            console.error("Status update failed", error);
-            toast.error("Failed to update status");
+            toast.error(error.response?.data?.message || "Failed to update status");
         }
     };
 
@@ -53,12 +43,9 @@ const VendorCommissions = () => {
         const toastId = toast.loading("Uploading delivery...");
         try {
             const url = await uploadToCloudinary(deliveryFile);
-            const token = localStorage.getItem('token');
 
-            await axios.put(`http://localhost:3001/api/commissions/${id}/delivery`, {
+            await api.put(`/commissions/${id}/delivery`, {
                 deliveryFiles: [{ url, name: deliveryFile.name }]
-            }, {
-                headers: { Authorization: `Bearer ${token}` }
             });
 
             // Update local state
@@ -111,6 +98,7 @@ const VendorCommissions = () => {
                             <th className="px-6 py-4">Customer</th>
                             <th className="px-6 py-4">Service</th>
                             <th className="px-6 py-4">Budget</th>
+                            <th className="px-6 py-4">Payment</th>
                             <th className="px-6 py-4">Deadline</th>
                             <th className="px-6 py-4">Status</th>
                             <th className="px-6 py-4">Actions</th>
@@ -119,7 +107,7 @@ const VendorCommissions = () => {
                     <tbody className="divide-y divide-white/5 text-sm text-gray-300">
                         {commissions.length === 0 ? (
                             <tr>
-                                <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                                <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
                                     No commissions found.
                                 </td>
                             </tr>
@@ -135,6 +123,11 @@ const VendorCommissions = () => {
                                         <div className="text-xs text-gray-500 truncate max-w-[200px]">{commission.description}</div>
                                     </td>
                                     <td className="px-6 py-4 font-mono text-emerald-400">₹{commission.budget}</td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${commission.paymentStatus === 'paid' ? 'bg-green-500/10 text-green-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                                            {commission.paymentStatus === 'paid' ? 'Escrow' : 'Awaiting'}
+                                        </span>
+                                    </td>
                                     <td className="px-6 py-4">{new Date(commission.deadline).toLocaleDateString()}</td>
                                     <td className="px-6 py-4">{getStatusBadge(commission.status)}</td>
                                     <td className="px-6 py-4">
@@ -150,7 +143,12 @@ const VendorCommissions = () => {
                                                 </>
                                             )}
                                             {commission.status === 'accepted' && (
-                                                <button onClick={() => handleStatusUpdate(commission._id, 'in_progress')} className="p-1.5 bg-blue-500/10 text-blue-500 rounded hover:bg-blue-500/20 flex items-center gap-1" title="Start Work">
+                                                <button
+                                                    onClick={() => handleStatusUpdate(commission._id, 'in_progress')}
+                                                    disabled={commission.paymentStatus !== 'paid'}
+                                                    className={`p-1.5 rounded flex items-center gap-1 ${commission.paymentStatus === 'paid' ? 'bg-blue-500/10 text-blue-500 hover:bg-blue-500/20' : 'bg-gray-500/10 text-gray-500 cursor-not-allowed'}`}
+                                                    title={commission.paymentStatus === 'paid' ? 'Start Work' : 'Waiting for customer payment'}
+                                                >
                                                     <Play size={16} /> Start
                                                 </button>
                                             )}

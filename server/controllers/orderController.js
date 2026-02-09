@@ -1,7 +1,81 @@
 const asyncHandler = require('express-async-handler');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const Service = require('../models/Service');
 const { sendOrderConfirmationEmail } = require('../utils/email');
+
+async function buildOrderFromItems(items, buyerId, shippingAddress = {}) {
+    let totalAmount = 0;
+    const productsArray = [];
+    const lineItemsArray = [];
+
+    for (const item of items) {
+        const { productId, serviceId, quantity = 1, options = {}, customizations, scheduledDate } = item;
+
+        if (productId) {
+            const product = await Product.findById(productId);
+            if (!product) throw new Error(`Product ${productId} not found`);
+            if (!product.isActive || product.status !== 'active') {
+                throw new Error(`Product "${product.title}" is not available`);
+            }
+            if (product.type === 'physical' && product.stock < quantity) {
+                throw new Error(`Insufficient stock for "${product.title}". Available: ${product.stock}`);
+            }
+            const lineTotal = product.price * quantity;
+            totalAmount += lineTotal;
+            productsArray.push({ product: productId, quantity, options });
+            lineItemsArray.push({
+                itemType: 'product',
+                product: productId,
+                quantity,
+                unitPrice: product.price,
+                options
+            });
+        } else if (serviceId) {
+            const service = await Service.findById(serviceId).populate('vendor', 'name');
+            if (!service) throw new Error(`Service ${serviceId} not found`);
+            if (!service.isActive) throw new Error(`Service "${service.title}" is not available`);
+            const unitPrice = service.basePrice;
+            const lineTotal = unitPrice * quantity;
+            totalAmount += lineTotal;
+            lineItemsArray.push({
+                itemType: 'service',
+                service: serviceId,
+                quantity,
+                unitPrice,
+                options: {},
+                customizations: customizations || undefined,
+                scheduledDate: scheduledDate ? new Date(scheduledDate) : undefined
+            });
+        } else {
+            throw new Error('Invalid cart item: productId or serviceId required');
+        }
+    }
+
+    const order = await Order.create({
+        buyer: buyerId,
+        products: productsArray,
+        lineItems: lineItemsArray,
+        totalAmount,
+        shippingAddress,
+        status: 'pending',
+        paymentStatus: 'pending'
+    });
+
+    for (const item of items) {
+        if (item.productId) {
+            const product = await Product.findById(item.productId);
+            if (product && product.type === 'physical') {
+                product.stock -= item.quantity;
+                product.sales = (product.sales || 0) + item.quantity;
+                if (product.stock <= 0) product.status = 'sold_out';
+                await product.save();
+            }
+        }
+    }
+
+    return order;
+}
 
 // @desc    Create a new order from cart
 // @route   POST /api/orders
@@ -15,72 +89,12 @@ const createOrder = asyncHandler(async (req, res) => {
     }
 
     const buyerId = req.user.id;
-
-    // Validate items and calculate total server-side
-    let totalAmount = 0;
-    const orderItems = [];
-
-    for (const item of items) {
-        const { productId, quantity, options = {} } = item;
-
-        if (!productId || !quantity || quantity < 1) {
-            res.status(400);
-            throw new Error('Invalid cart item: productId and quantity required');
-        }
-
-        const product = await Product.findById(productId);
-        if (!product) {
-            res.status(404);
-            throw new Error(`Product ${productId} not found`);
-        }
-        if (!product.isActive || product.status !== 'active') {
-            res.status(400);
-            throw new Error(`Product "${product.title}" is not available`);
-        }
-
-        // Stock check for physical products
-        if (product.type === 'physical') {
-            if (product.stock < quantity) {
-                res.status(400);
-                throw new Error(`Insufficient stock for "${product.title}". Available: ${product.stock}`);
-            }
-        }
-
-        const lineTotal = product.price * quantity;
-        totalAmount += lineTotal;
-
-        orderItems.push({
-            product: productId,
-            quantity,
-            options
-        });
-    }
-
-    // Create order
-    const order = await Order.create({
-        buyer: buyerId,
-        products: orderItems,
-        totalAmount,
-        shippingAddress: shippingAddress || {},
-        status: 'pending',
-        paymentStatus: 'pending'
-    });
-
-    // Update product stock and sales for physical products
-    for (const item of items) {
-        const product = await Product.findById(item.productId);
-        if (product && product.type === 'physical') {
-            product.stock -= item.quantity;
-            product.sales = (product.sales || 0) + item.quantity;
-            if (product.stock <= 0) {
-                product.status = 'sold_out';
-            }
-            await product.save();
-        }
-    }
+    const order = await buildOrderFromItems(items, buyerId, shippingAddress || {});
 
     const populatedOrder = await Order.findById(order._id)
         .populate('products.product', 'title price images type vendor')
+        .populate('lineItems.product', 'title price images type')
+        .populate('lineItems.service', 'title basePrice deliveryTime vendor')
         .populate('buyer', 'name email');
 
     try {
@@ -98,6 +112,8 @@ const createOrder = asyncHandler(async (req, res) => {
 const getMyOrders = asyncHandler(async (req, res) => {
     const orders = await Order.find({ buyer: req.user.id })
         .populate('products.product', 'title price images type')
+        .populate('lineItems.product', 'title price images type')
+        .populate('lineItems.service', 'title basePrice coverImage deliveryTime')
         .sort('-createdAt')
         .lean();
 
@@ -110,6 +126,8 @@ const getMyOrders = asyncHandler(async (req, res) => {
 const getOrderById = asyncHandler(async (req, res) => {
     const order = await Order.findById(req.params.id)
         .populate('products.product', 'title price images type vendor')
+        .populate('lineItems.product', 'title price images type vendor')
+        .populate('lineItems.service', 'title basePrice coverImage deliveryTime vendor')
         .populate('buyer', 'name email');
 
     if (!order) {
@@ -144,17 +162,18 @@ const getInvoice = asyncHandler(async (req, res) => {
         throw new Error('Not authorized to view this invoice');
     }
 
-    const lineItems = order.products.map(p => {
-        const price = p.product?.price || 0;
-        const lineTotal = price * (p.quantity || 1);
-        return {
-            title: p.product?.title || 'Unknown',
-            quantity: p.quantity,
-            price,
-            lineTotal,
-            type: p.product?.type
-        };
-    });
+    const itemsForInvoice = (order.lineItems && order.lineItems.length > 0)
+        ? order.lineItems.map(li => {
+            const price = li.unitPrice || (li.product?.price || li.service?.basePrice || 0);
+            const qty = li.quantity || 1;
+            const title = li.product?.title || li.service?.title || 'Unknown';
+            return { title, quantity: qty, price, lineTotal: price * qty, type: li.product ? (li.product.type || 'product') : 'service' };
+        })
+        : order.products.map(p => {
+            const price = p.product?.price || 0;
+            const lineTotal = price * (p.quantity || 1);
+            return { title: p.product?.title || 'Unknown', quantity: p.quantity, price, lineTotal, type: p.product?.type };
+        });
 
     const subtotal = order.totalAmount;
     const tax = Math.round(subtotal * 0.18 * 100) / 100;
@@ -169,7 +188,7 @@ const getInvoice = asyncHandler(async (req, res) => {
             email: order.buyer?.email
         },
         shippingAddress: order.shippingAddress,
-        items: lineItems,
+        items: itemsForInvoice,
         subtotal,
         tax,
         total,
@@ -352,5 +371,6 @@ module.exports = {
     getOrderById,
     getInvoice,
     getDownloadUrl,
-    updateOrderStatus
+    updateOrderStatus,
+    buildOrderFromItems
 };

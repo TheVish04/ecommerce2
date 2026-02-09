@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { Trash2, Plus, Minus, ArrowRight, ShoppingBag, Loader2, MapPin } from 'lucide-react';
+import { Trash2, Plus, Minus, ArrowRight, ShoppingBag, Loader2, MapPin, Briefcase } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../components/Button';
 import api from '../services/api';
@@ -62,11 +62,21 @@ const CartPage = () => {
     };
 
     const getPayload = () => ({
-        items: cartItems.map(item => ({
-            productId: item._id,
-            quantity: item.quantity,
-            options: item.selectedOptions || {}
-        })),
+        items: cartItems.map(item => {
+            if (item.itemType === 'service') {
+                return {
+                    serviceId: item._id,
+                    quantity: 1,
+                    customizations: item.customizations || '',
+                    scheduledDate: item.scheduledDate || null
+                };
+            }
+            return {
+                productId: item._id,
+                quantity: item.quantity,
+                options: item.selectedOptions || {}
+            };
+        }),
         shippingAddress: hasPhysicalProduct ? shippingAddress : {}
     });
 
@@ -160,9 +170,10 @@ const CartPage = () => {
                     </div>
                     <h2 className="text-2xl font-bold text-dark-900 dark:text-white mb-2">Your cart is empty</h2>
                     <p className="text-gray-500 mb-8">Looks like you haven't added anything yet.</p>
-                    <Link to="/shop">
-                        <Button variant="primary">Start Shopping</Button>
-                    </Link>
+                    <div className="flex gap-4">
+                        <Link to="/shop"><Button variant="primary">Shop Products</Button></Link>
+                        <Link to="/services"><Button variant="outline">Browse Services</Button></Link>
+                    </div>
                 </div>
             </div>
         );
@@ -178,66 +189,75 @@ const CartPage = () => {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Cart Items */}
                     <div className="lg:col-span-2 space-y-4">
-                        {cartItems.map((item) => (
-                            <div key={item.cartItemId || item._id} className="bg-white dark:bg-dark-800 p-4 rounded-xl border border-light-700 dark:border-white/5 flex gap-4 items-center shadow-sm">
-                                <div className="w-24 h-24 bg-gray-100 dark:bg-dark-900 rounded-lg overflow-hidden shrink-0">
-                                    <img
-                                        src={item.images?.[0] || 'https://via.placeholder.com/150'}
-                                        alt={item.title}
-                                        className="w-full h-full object-cover"
-                                    />
-                                </div>
-                                <div className="flex-1">
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h3 className="font-bold text-lg text-dark-900 dark:text-white truncate pr-4">
-                                            <Link to={`/products/${item._id}`}>{item.title}</Link>
-                                        </h3>
-                                        <button
-                                            onClick={() => removeFromCart(item.cartItemId || item._id)}
-                                            className="text-gray-400 hover:text-red-500 transition-colors p-1"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
+                        {cartItems.map((item) => {
+                            const isService = item.itemType === 'service';
+                            const price = item.price ?? item.basePrice ?? 0;
+                            const qty = item.quantity ?? 1;
+                            const lineTotal = price * qty;
+                            const imgSrc = (Array.isArray(item.images) ? item.images[0] : item.coverImage) || item.images?.[0] || 'https://via.placeholder.com/150';
+                            return (
+                                <div key={item.cartItemId || item._id} className="bg-white dark:bg-dark-800 p-4 rounded-xl border border-light-700 dark:border-white/5 flex gap-4 items-center shadow-sm">
+                                    <div className="w-24 h-24 bg-gray-100 dark:bg-dark-900 rounded-lg overflow-hidden shrink-0">
+                                        <img src={imgSrc} alt={item.title} className="w-full h-full object-cover" />
                                     </div>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2 capitalize">{item.type}</p>
-
-                                    {/* Selected Options */}
-                                    {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
-                                        <div className="flex flex-wrap gap-2 mb-4">
-                                            {Object.entries(item.selectedOptions).map(([key, value]) => (
-                                                value && (
-                                                    <span key={key} className="text-xs bg-gray-100 dark:bg-white/10 px-2 py-1 rounded text-gray-600 dark:text-gray-300 capitalize">
-                                                        <span className="font-bold">{key}:</span> {value}
-                                                    </span>
-                                                )
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    <div className="flex justify-between items-center">
-                                        <div className="flex items-center gap-3 bg-light-900 dark:bg-white/5 rounded-lg p-1">
-                                            <button
-                                                onClick={() => updateQuantity(item.cartItemId || item._id, item.quantity - 1)}
-                                                className="p-1 hover:bg-white dark:hover:bg-white/10 rounded disabled:opacity-50"
-                                                disabled={item.quantity <= 1}
-                                            >
-                                                <Minus size={14} />
-                                            </button>
-                                            <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
-                                            <button
-                                                onClick={() => updateQuantity(item.cartItemId || item._id, item.quantity + 1)}
-                                                className="p-1 hover:bg-white dark:hover:bg-white/10 rounded"
-                                            >
-                                                <Plus size={14} />
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <h3 className="font-bold text-lg text-dark-900 dark:text-white truncate pr-4">
+                                                {isService ? (
+                                                    <span>{item.title}</span>
+                                                ) : (
+                                                    <Link to={`/products/${item._id}`}>{item.title}</Link>
+                                                )}
+                                            </h3>
+                                            <button onClick={() => removeFromCart(item.cartItemId || item._id)} className="text-gray-400 hover:text-red-500 transition-colors p-1">
+                                                <Trash2 size={18} />
                                             </button>
                                         </div>
-                                        <div className="font-bold text-lg">
-                                            ₹{item.price * item.quantity}
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1">
+                                            {isService ? (
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                                                    <Briefcase size={12} /> Service
+                                                </span>
+                                            ) : (
+                                                <span className="capitalize">{item.type || 'product'}</span>
+                                            )}
+                                        </p>
+
+                                        {!isService && item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mb-4">
+                                                {Object.entries(item.selectedOptions).map(([key, value]) =>
+                                                    value && (
+                                                        <span key={key} className="text-xs bg-gray-100 dark:bg-white/10 px-2 py-1 rounded text-gray-600 dark:text-gray-300 capitalize">
+                                                            <span className="font-bold">{key}:</span> {value}
+                                                        </span>
+                                                    )
+                                                )}
+                                            </div>
+                                        )}
+                                        {isService && item.customizations && (
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 line-clamp-2">{item.customizations}</p>
+                                        )}
+
+                                        <div className="flex justify-between items-center">
+                                            {isService ? (
+                                                <span className="text-sm text-gray-500">Qty: 1</span>
+                                            ) : (
+                                                <div className="flex items-center gap-3 bg-light-900 dark:bg-white/5 rounded-lg p-1">
+                                                    <button onClick={() => updateQuantity(item.cartItemId || item._id, item.quantity - 1)} className="p-1 hover:bg-white dark:hover:bg-white/10 rounded disabled:opacity-50" disabled={item.quantity <= 1}>
+                                                        <Minus size={14} />
+                                                    </button>
+                                                    <span className="text-sm font-medium w-8 text-center">{item.quantity}</span>
+                                                    <button onClick={() => updateQuantity(item.cartItemId || item._id, item.quantity + 1)} className="p-1 hover:bg-white dark:hover:bg-white/10 rounded">
+                                                        <Plus size={14} />
+                                                    </button>
+                                                </div>
+                                            )}
+                                            <div className="font-bold text-lg">₹{lineTotal}</div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     {/* Order Summary & Checkout */}

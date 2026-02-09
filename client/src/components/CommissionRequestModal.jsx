@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Upload, IndianRupee, Calendar } from 'lucide-react';
 import Button from './Button';
 import { uploadToCloudinary } from '../utils/upload';
-import axios from 'axios';
+import api from '../services/api';
 import { toast } from 'react-hot-toast';
 
 const CommissionRequestModal = ({ service, onClose, isOpen }) => {
@@ -30,7 +30,6 @@ const CommissionRequestModal = ({ service, onClose, isOpen }) => {
                 imageUrl = await uploadToCloudinary(image);
             }
 
-            const token = localStorage.getItem('token');
             const payload = {
                 serviceId: service._id,
                 description,
@@ -39,9 +38,7 @@ const CommissionRequestModal = ({ service, onClose, isOpen }) => {
                 referenceImages: imageUrl ? [imageUrl] : []
             };
 
-            await axios.post('http://localhost:3001/api/commissions', payload, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await api.post('/commissions', payload);
 
             toast.success('Commission request sent successfully!');
             onClose();

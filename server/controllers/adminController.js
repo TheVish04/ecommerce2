@@ -132,7 +132,7 @@ const getProducts = asyncHandler(async (req, res) => {
     if (category) query.category = category;
 
     const [products, total] = await Promise.all([
-        Product.find(query).populate('vendor', 'name email').sort('-createdAt').skip(skip).limit(limit).lean(),
+        Product.find(query).populate('vendor', 'name email').populate('category', 'name slug').sort('-createdAt').skip(skip).limit(limit).lean(),
         Product.countDocuments(query)
     ]);
 

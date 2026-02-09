@@ -52,6 +52,16 @@ const OrdersPage = () => {
     };
 
     const getItemNames = (order) => {
+        if (order.lineItems && order.lineItems.length > 0) {
+            return order.lineItems
+                .map(li => {
+                    const title = li.product?.title || li.service?.title || 'Unknown';
+                    const qty = li.quantity || 1;
+                    const suffix = li.service ? ' (Service)' : '';
+                    return `${title} × ${qty}${suffix}`;
+                })
+                .join(', ');
+        }
         return order.products
             ?.map(p => `${p.product?.title || 'Unknown'} × ${p.quantity || 1}`)
             .filter(Boolean)

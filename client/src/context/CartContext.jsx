@@ -23,16 +23,13 @@ export const CartProvider = ({ children }) => {
         }
 
         setCartItems(prev => {
-            // Find if this exact variant exists (Same ID + Same Options)
             const optionsKey = JSON.stringify(options);
-            const existingVariant = prev.find(item => item._id === product._id && JSON.stringify(item.selectedOptions || {}) === optionsKey);
+            const existingVariant = prev.find(item => item.itemType === 'product' && item._id === product._id && JSON.stringify(item.selectedOptions || {}) === optionsKey);
 
-            // Calculate total quantity of this product currently in cart (across all variants)
             const currentTotalQuantity = prev
-                .filter(item => item._id === product._id)
+                .filter(item => item.itemType === 'product' && item._id === product._id)
                 .reduce((total, item) => total + item.quantity, 0);
 
-            // Check if adding more exceeds stock
             if (product.type === 'physical' && (currentTotalQuantity + quantity) > product.stock) {
                 toast.error(`Only ${product.stock} items available in stock`);
                 return prev;
@@ -41,15 +38,37 @@ export const CartProvider = ({ children }) => {
             if (existingVariant) {
                 toast.success('Cart updated');
                 return prev.map(item =>
-                    (item._id === product._id && JSON.stringify(item.selectedOptions || {}) === optionsKey)
+                    (item.itemType === 'product' && item._id === product._id && JSON.stringify(item.selectedOptions || {}) === optionsKey)
                         ? { ...item, quantity: item.quantity + quantity }
                         : item
                 );
             }
 
             toast.success('Added to cart');
-            const cartItemId = `${product._id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            return [...prev, { ...product, quantity, selectedOptions: options, cartItemId }];
+            const cartItemId = `product-${product._id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            return [...prev, { ...product, itemType: 'product', quantity, selectedOptions: options, cartItemId }];
+        });
+    };
+
+    const addServiceToCart = (service, customizations = '', scheduledDate = null) => {
+        setCartItems(prev => {
+            const existing = prev.find(item => item.itemType === 'service' && item._id === service._id && item.customizations === customizations);
+            if (existing) {
+                toast.success('Service already in cart');
+                return prev;
+            }
+            toast.success('Service added to cart');
+            const cartItemId = `service-${service._id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            return [...prev, {
+                ...service,
+                itemType: 'service',
+                quantity: 1,
+                price: service.basePrice,
+                images: service.coverImage ? [service.coverImage] : [],
+                customizations: customizations || undefined,
+                scheduledDate: scheduledDate || undefined,
+                cartItemId
+            }];
         });
     };
 
@@ -59,21 +78,28 @@ export const CartProvider = ({ children }) => {
 
     const updateQuantity = (cartItemId, quantity) => {
         if (quantity < 1) return;
-        setCartItems(prev => prev.map(item =>
-            (item.cartItemId || item._id) === cartItemId ? { ...item, quantity } : item
-        ));
+        setCartItems(prev => prev.map(item => {
+            if ((item.cartItemId || item._id) !== cartItemId) return item;
+            if (item.itemType === 'service') return item;
+            return { ...item, quantity };
+        }));
     };
 
     const clearCart = () => setCartItems([]);
 
     const getCartTotal = () => {
-        return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+        return cartItems.reduce((total, item) => {
+            const price = item.price ?? item.basePrice ?? 0;
+            const qty = item.quantity ?? 1;
+            return total + (price * qty);
+        }, 0);
     };
 
     return (
         <CartContext.Provider value={{
             cartItems,
             addToCart,
+            addServiceToCart,
             removeFromCart,
             updateQuantity,
             clearCart,

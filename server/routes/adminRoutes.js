@@ -12,13 +12,25 @@ const {
     getCommissions,
     getUsers
 } = require('../controllers/adminController');
+const {
+    getAdminCategories,
+    createCategory,
+    updateCategory,
+    deleteCategory
+} = require('../controllers/categoryController');
 const { protect } = require('../middleware/auth.middleware');
 const { authorize } = require('../middleware/role.middleware');
+const { validate } = require('../middleware/validate.middleware');
+const { createCategoryRules, updateCategoryRules } = require('../validators/category.validator');
 
 router.use(protect);
 router.use(authorize('admin'));
 
 router.get('/dashboard', getDashboard);
+router.get('/categories', getAdminCategories);
+router.post('/categories', createCategoryRules(), validate, createCategory);
+router.put('/categories/:id', updateCategoryRules(), validate, updateCategory);
+router.delete('/categories/:id', deleteCategory);
 router.get('/orders', getOrders);
 router.get('/vendors', getVendors);
 router.put('/vendors/:id/approve', updateVendorStatus);

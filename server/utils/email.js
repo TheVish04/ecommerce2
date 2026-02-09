@@ -55,4 +55,34 @@ const sendOrderConfirmationEmail = async (order) => {
     });
 };
 
-module.exports = { sendOrderConfirmationEmail };
+const buildCommissionPaymentEmailHtml = (commission) => {
+    const vendorName = commission.vendor?.name || 'Artist';
+    const serviceTitle = commission.service?.title || 'Commission';
+    const budget = commission.budget?.toLocaleString() || '0';
+    return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Commission Payment Confirmed</title></head>
+<body style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <h1 style="color: #7c3aed;">Payment Received – Commission #${commission._id?.toString().slice(-8).toUpperCase()}</h1>
+    <p>Hi ${commission.customer?.name || 'Customer'},</p>
+    <p>Your payment of <strong>₹${budget}</strong> for the commission <strong>${serviceTitle}</strong> has been confirmed.</p>
+    <p>Funds are held securely in escrow and will be released to <strong>${vendorName}</strong> once the work is completed and delivered.</p>
+    <p>You can track progress in your <a href="${process.env.CLIENT_URL || 'https://kalavpp.com'}/commissions">Commissions</a> page.</p>
+    <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;">
+    <p style="color: #6b7280; font-size: 12px;">— KalaVPP</p>
+</body>
+</html>`;
+};
+
+const sendCommissionPaymentEmail = async (commission) => {
+    if (!transporter || !commission.customer?.email) return;
+    await transporter.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@kalavpp.com',
+        to: commission.customer.email,
+        subject: `Payment Confirmed – Commission #${commission._id?.toString().slice(-8).toUpperCase()} - KalaVPP`,
+        html: buildCommissionPaymentEmailHtml(commission)
+    });
+};
+
+module.exports = { sendOrderConfirmationEmail, sendCommissionPaymentEmail };
