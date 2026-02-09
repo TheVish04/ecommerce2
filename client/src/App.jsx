@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LandingPage from './pages/LandingPage';
+import WishlistPage from './pages/WishlistPage';
 import ShopPage from './pages/ShopPage';
 import ServicesPage from './pages/ServicesPage';
 import ArtistsPage from './pages/ArtistsPage';
@@ -77,6 +78,7 @@ function App() {
         <Route path="/verify-email" element={<VerifyEmailPage />} />
         <Route path="/artist/:id" element={<ArtistProfile />} />
         <Route path="/cart" element={<CartPage />} />
+        <Route path="/wishlist" element={<ProtectedRoute><WishlistPage /></ProtectedRoute>} />
         <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
         <Route path="/orders/:id" element={<ProtectedRoute><OrderDetailPage /></ProtectedRoute>} />
         <Route path="/order-confirmation/:id" element={<ProtectedRoute><OrderConfirmationPage /></ProtectedRoute>} />

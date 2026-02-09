@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 import { useAuth } from '../context/AuthContext';
-import { Filter, Search, ShoppingCart, Loader2 } from 'lucide-react';
+import { Filter, Search, ShoppingCart, Loader2, Heart } from 'lucide-react';
 import axios from 'axios';
 import { Link, useSearchParams } from 'react-router-dom';
 import Button from '../components/Button';
@@ -12,6 +13,7 @@ const ShopPage = () => {
     const [loading, setLoading] = useState(true);
     const [searchParams, setSearchParams] = useSearchParams();
     const { addToCart } = useCart();
+    const { toggleWishlist, isInWishlist } = useWishlist();
     const { currentUser } = useAuth();
 
     // Filters
@@ -101,6 +103,17 @@ const ShopPage = () => {
                             <div key={product._id} className="group bg-white dark:bg-dark-800 rounded-2xl overflow-hidden border border-light-700 dark:border-white/5 hover:shadow-xl transition-all duration-300 flex flex-col">
                                 {/* Image */}
                                 <div className="aspect-[4/5] relative overflow-hidden bg-gray-100 dark:bg-dark-900">
+                                    <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                toggleWishlist(product._id);
+                                            }}
+                                            className="p-2 bg-white/80 dark:bg-black/80 rounded-full text-gray-600 dark:text-gray-300 hover:text-pink-500 hover:bg-white dark:hover:bg-dark-700 transition-colors"
+                                        >
+                                            <Heart size={18} className={isInWishlist(product._id) ? "fill-pink-500 text-pink-500" : ""} />
+                                        </button>
+                                    </div>
                                     <Link to={`/products/${product._id}`}>
                                         <img
                                             src={product.images?.[0] || 'https://via.placeholder.com/400'}

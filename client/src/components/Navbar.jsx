@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 import { useTheme } from '../context/ThemeContext';
 import {
     Search, ShoppingCart, User, LogOut, Menu, X, Rocket,
@@ -12,6 +13,7 @@ import Button from './Button';
 const Navbar = () => {
     const { currentUser, logout } = useAuth();
     const { cartItems } = useCart();
+    const { wishlist } = useWishlist();
     const { theme, toggleTheme } = useTheme();
     const [isOpen, setIsOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
@@ -137,7 +139,12 @@ const Navbar = () => {
                                     <div className="h-6 w-px bg-gray-300 dark:bg-white/10 mx-1"></div>
 
                                     <Link to="/wishlist" className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-pink-500 transition-colors">
-                                        <Heart size={20} />
+                                        <Heart size={20} className={wishlist.length > 0 ? "fill-pink-500 text-pink-500" : ""} />
+                                        {wishlist.length > 0 && (
+                                            <span className="absolute top-0 right-0 w-4 h-4 bg-pink-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full">
+                                                {wishlist.length}
+                                            </span>
+                                        )}
                                     </Link>
 
                                     <Link to="/cart" className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-blue-500 transition-colors">

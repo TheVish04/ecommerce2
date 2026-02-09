@@ -31,7 +31,7 @@ app.use(express.urlencoded({ extended: false }));
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 20,
+    max: 100, // Increased from 20
     message: { message: 'Too many attempts, please try again later' },
     standardHeaders: true,
     legacyHeaders: false
@@ -39,7 +39,7 @@ const authLimiter = rateLimit({
 
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 200,
+    max: 1000, // Increased from 200
     message: { message: 'Too many requests, please try again later' },
     standardHeaders: true,
     legacyHeaders: false
@@ -67,6 +67,7 @@ app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/services', require('./routes/serviceRoutes'));
 app.use('/api/commissions', require('./routes/commissionRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
+app.use('/api/wishlist', require('./routes/wishlistRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 
 // 404 Handler

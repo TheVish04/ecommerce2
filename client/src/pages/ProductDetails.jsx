@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
 import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 import { useAuth } from '../context/AuthContext';
 import { ShoppingCart, Heart, Share2, ArrowLeft, Loader2, Zap, X, MapPin } from 'lucide-react';
 import Button from '../components/Button';
@@ -23,6 +24,7 @@ const ProductDetails = () => {
     const [shippingAddress, setShippingAddress] = useState({ street: '', city: '', state: '', pincode: '', phone: '' });
     const [buyNowLoading, setBuyNowLoading] = useState(false);
     const { addToCart } = useCart();
+    const { toggleWishlist, isInWishlist } = useWishlist();
     const { currentUser } = useAuth();
 
     useEffect(() => {
@@ -55,7 +57,7 @@ const ProductDetails = () => {
                         phone: defaultAddr.phone || ''
                     });
                 }
-            }).catch(() => {});
+            }).catch(() => { });
         }
     }, [currentUser, product?.type, buyNowModalOpen]);
 
@@ -323,8 +325,11 @@ const ProductDetails = () => {
                                     <p className="text-4xl font-bold text-dark-900 dark:text-emerald-400">₹{product.price}</p>
                                 </div>
                                 <div className="flex gap-4">
-                                    <button className="p-3 rounded-full bg-gray-100 dark:bg-white/5 text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
-                                        <Heart size={24} />
+                                    <button
+                                        onClick={() => toggleWishlist(product._id)}
+                                        className={`p-3 rounded-full bg-gray-100 dark:bg-white/5 transition-colors ${isInWishlist(product._id) ? 'text-pink-500 bg-pink-50 dark:bg-pink-500/10' : 'text-gray-500 hover:text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-500/10'}`}
+                                    >
+                                        <Heart size={24} className={isInWishlist(product._id) ? "fill-pink-500" : ""} />
                                     </button>
                                     <button className="p-3 rounded-full bg-gray-100 dark:bg-white/5 text-gray-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors">
                                         <Share2 size={24} />
