@@ -1,7 +1,7 @@
 const nodemailer = require("nodemailer");
 
 /**
- * IMPORTANT ENV VARIABLES (must exist in Vercel dashboard)
+ * REQUIRED ENV VARIABLES (Vercel Dashboard)
  *
  * SMTP_HOST=smtp.gmail.com
  * SMTP_PORT=465
@@ -10,10 +10,10 @@ const nodemailer = require("nodemailer");
  * SMTP_FROM=KalaVPP <yourgmail@gmail.com>
  */
 
-const EMAIL_SEND_TIMEOUT_MS = 15000; // 15s max (serverless safe)
+const EMAIL_SEND_TIMEOUT_MS = 15000; // serverless-safe
 let cachedTransporter = null;
 
-/* ------------------ TRANSPORTER ------------------ */
+/* ---------------- TRANSPORTER ---------------- */
 
 const getTransporter = () => {
   if (cachedTransporter) return cachedTransporter;
@@ -27,6 +27,10 @@ const getTransporter = () => {
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT) || 465,
     secure: true,
+
+    // 🔥 IMPORTANT: FORCE IPV4 (fixes ENETUNREACH on Vercel)
+    family: 4,
+
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -42,7 +46,7 @@ const getTransporter = () => {
   return cachedTransporter;
 };
 
-/* ------------------ SEND WITH TIMEOUT ------------------ */
+/* ---------------- SEND WITH TIMEOUT ---------------- */
 
 const sendMailWithTimeout = (mailOptions) => {
   const transporter = getTransporter();
@@ -61,17 +65,17 @@ const sendMailWithTimeout = (mailOptions) => {
   ]);
 };
 
-/* ------------------ EMAIL TEMPLATES ------------------ */
+/* ---------------- EMAIL TEMPLATES ---------------- */
 
 const buildOrderEmailHtml = (order) => {
   const items = (order.products || [])
     .map(
-      (p) =>
-        `<tr>
-          <td>${p.product?.title || "Item"}</td>
-          <td>${p.quantity}</td>
-          <td>₹${(p.product?.price || 0) * p.quantity}</td>
-        </tr>`
+      (p) => `
+<tr>
+  <td>${p.product?.title || "Item"}</td>
+  <td>${p.quantity}</td>
+  <td>₹${(p.product?.price || 0) * p.quantity}</td>
+</tr>`
     )
     .join("");
 
@@ -124,7 +128,6 @@ const buildVerificationOtpEmailHtml = (user, otp) => `
 <body style="font-family:system-ui;max-width:600px;margin:auto;padding:20px">
 <h2>Verify Your Email</h2>
 <p>Hi ${user.name || "User"},</p>
-<p>Your OTP:</p>
 <h1 style="letter-spacing:6px">${otp}</h1>
 <p>Expires in 10 minutes.</p>
 <hr />
@@ -132,20 +135,18 @@ const buildVerificationOtpEmailHtml = (user, otp) => `
 </body>
 </html>`;
 
-/* ------------------ SENDERS ------------------ */
+/* ---------------- SENDERS ---------------- */
 
 const sendOrderConfirmationEmail = async (order) => {
   if (!order?.buyer?.email) return;
-  try {
-    await sendMailWithTimeout({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: order.buyer.email,
-      subject: "Order Confirmed - KalaVPP",
-      html: buildOrderEmailHtml(order),
-    });
-  } catch (err) {
-    console.error("[Email] Order email failed:", err.message);
-  }
+  sendMailWithTimeout({
+    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    to: order.buyer.email,
+    subject: "Order Confirmed - KalaVPP",
+    html: buildOrderEmailHtml(order),
+  }).catch((err) =>
+    console.error("[Email] Order email failed:", err.message)
+  );
 };
 
 const sendPasswordResetEmail = async (user, token) => {
@@ -169,7 +170,7 @@ const sendVerificationOtpEmail = async (user, otp) => {
   });
 };
 
-/* ------------------ EXPORTS ------------------ */
+/* ---------------- EXPORTS ---------------- */
 
 module.exports = {
   sendOrderConfirmationEmail,
