@@ -17,31 +17,42 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new Error('Please add all fields');
     }
 
-    const userExists = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
 
-    if (userExists) {
+    if (existingUser?.isEmailVerified) {
         res.status(400);
         throw new Error('User already exists');
     }
 
     const userRole = role || 'customer';
-    const userData = {
-        name,
-        email,
-        password,
-        role: userRole,
-        isEmailVerified: false
-    };
+    let user;
 
-    if (userRole === 'vendor') {
-        userData.vendorStatus = 'pending';
-    }
-
-    const user = await User.create(userData);
-
-    if (!user) {
-        res.status(400);
-        throw new Error('Invalid user data');
+    if (existingUser && !existingUser.isEmailVerified) {
+        // Re-registration: update unverified user and resend OTP
+        existingUser.name = name;
+        existingUser.password = password;
+        existingUser.role = userRole;
+        if (userRole === 'vendor') {
+            existingUser.vendorStatus = 'pending';
+        }
+        await existingUser.save();
+        user = existingUser;
+    } else {
+        const userData = {
+            name,
+            email,
+            password,
+            role: userRole,
+            isEmailVerified: false
+        };
+        if (userRole === 'vendor') {
+            userData.vendorStatus = 'pending';
+        }
+        user = await User.create(userData);
+        if (!user) {
+            res.status(400);
+            throw new Error('Invalid user data');
+        }
     }
 
     const otp = user.getEmailVerificationOtp();
