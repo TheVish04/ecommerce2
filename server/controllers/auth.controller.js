@@ -3,10 +3,11 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const asyncHandler = require('express-async-handler');
 const User = require('../models/User');
+const PendingRegistration = require('../models/PendingRegistration');
 const generateToken = require('../utils/generateToken');
 const { sendPasswordResetEmail, sendVerificationOtpEmail } = require('../utils/email');
 
-// @desc    Register new user (sends OTP for email verification)
+// @desc    Register new user (sends OTP for email verification; user is NOT stored until OTP verified)
 // @route   POST /api/auth/register
 // @access  Public
 const registerUser = asyncHandler(async (req, res) => {
@@ -17,63 +18,59 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new Error('Please add all fields');
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const emailLower = email.toLowerCase();
 
+    // Already a verified user? Reject.
+    const existingUser = await User.findOne({ email: emailLower });
     if (existingUser?.isEmailVerified) {
         res.status(400);
         throw new Error('User already exists');
     }
 
-    const userRole = role || 'customer';
-    let user;
-
-    if (existingUser && !existingUser.isEmailVerified) {
-        // Re-registration: update unverified user and resend OTP
-        existingUser.name = name;
-        existingUser.password = password;
-        existingUser.role = userRole;
-        if (userRole === 'vendor') {
-            existingUser.vendorStatus = 'pending';
-        }
-        await existingUser.save();
-        user = existingUser;
-    } else {
-        const userData = {
-            name,
-            email,
-            password,
-            role: userRole,
-            isEmailVerified: false
-        };
-        if (userRole === 'vendor') {
-            userData.vendorStatus = 'pending';
-        }
-        user = await User.create(userData);
-        if (!user) {
-            res.status(400);
-            throw new Error('Invalid user data');
-        }
+    // Must have email configured before creating any record (prevents hanging + clear error)
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER) {
+        res.status(503);
+        throw new Error('Email service is not configured. OTP cannot be sent. Please set SMTP_HOST and SMTP_USER in server .env');
     }
 
-    const otp = user.getEmailVerificationOtp();
-    await user.save({ validateBeforeSave: false });
+    const userRole = role || 'customer';
+    let pending = await PendingRegistration.findOne({ email: emailLower });
+
+    if (pending) {
+        pending.name = name;
+        pending.password = password;
+        pending.role = userRole;
+        pending.vendorStatus = userRole === 'vendor' ? 'pending' : undefined;
+        await pending.save();
+    } else {
+        pending = await PendingRegistration.create({
+            name,
+            email: emailLower,
+            password,
+            role: userRole,
+            vendorStatus: userRole === 'vendor' ? 'pending' : 'pending'
+        });
+    }
+
+    const otp = pending.getEmailVerificationOtp();
+    await pending.save({ validateBeforeSave: false });
 
     try {
-        await sendVerificationOtpEmail(user, otp);
+        await sendVerificationOtpEmail({ name: pending.name, email: pending.email }, otp);
     } catch (err) {
-        await User.findByIdAndDelete(user._id);
+        await PendingRegistration.findByIdAndDelete(pending._id);
         res.status(500);
-        throw new Error('Failed to send verification email');
+        throw new Error(err.message || 'Failed to send verification email. Check SMTP settings and try again.');
     }
 
     res.status(201).json({
         needsVerification: true,
-        email: user.email,
+        email: pending.email,
         message: 'Verification OTP sent to your email'
     });
 });
 
-// @desc    Verify email with OTP
+// @desc    Verify email with OTP (creates User only after successful verification)
 // @route   POST /api/auth/verify-email
 // @access  Public
 const verifyEmailOtp = asyncHandler(async (req, res) => {
@@ -84,23 +81,64 @@ const verifyEmailOtp = asyncHandler(async (req, res) => {
         throw new Error('Email and OTP are required');
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const emailLower = email.toLowerCase();
+    const otpTrimmed = String(otp).trim();
 
-    if (!user) {
-        res.status(404);
-        throw new Error('User not found');
+    // 1. Check PendingRegistration first (new flow: user not stored until verify)
+    const pending = await PendingRegistration.findOne({ email: emailLower });
+
+    if (pending) {
+        if (!pending.emailVerificationOtp || !pending.emailVerificationOtpExpire) {
+            res.status(400);
+            throw new Error('OTP expired. Please request a new one.');
+        }
+        if (pending.emailVerificationOtpExpire < Date.now()) {
+            await PendingRegistration.findByIdAndUpdate(pending._id, {
+                $unset: { emailVerificationOtp: 1, emailVerificationOtpExpire: 1 }
+            });
+            res.status(400);
+            throw new Error('OTP expired. Please request a new one.');
+        }
+        if (pending.emailVerificationOtp !== otpTrimmed) {
+            res.status(400);
+            throw new Error('Invalid OTP');
+        }
+
+        // Create User only after OTP verified
+        const user = await User.create({
+            name: pending.name,
+            email: pending.email,
+            password: pending.password,
+            role: pending.role,
+            vendorStatus: pending.vendorStatus || (pending.role === 'vendor' ? 'pending' : undefined),
+            isEmailVerified: true
+        });
+        await PendingRegistration.findByIdAndDelete(pending._id);
+
+        return res.json({
+            _id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            vendorStatus: user.vendorStatus,
+            token: generateToken(user._id)
+        });
     }
 
+    // 2. Legacy: unverified User already in DB (e.g. from before this change)
+    const user = await User.findOne({ email: emailLower });
+    if (!user) {
+        res.status(404);
+        throw new Error('User not found. Please sign up again and verify with the OTP sent to your email.');
+    }
     if (user.isEmailVerified) {
         res.status(400);
         throw new Error('Email is already verified');
     }
-
     if (!user.emailVerificationOtp || !user.emailVerificationOtpExpire) {
         res.status(400);
         throw new Error('OTP expired. Please request a new one.');
     }
-
     if (user.emailVerificationOtpExpire < Date.now()) {
         user.emailVerificationOtp = undefined;
         user.emailVerificationOtpExpire = undefined;
@@ -108,8 +146,7 @@ const verifyEmailOtp = asyncHandler(async (req, res) => {
         res.status(400);
         throw new Error('OTP expired. Please request a new one.');
     }
-
-    if (user.emailVerificationOtp !== String(otp).trim()) {
+    if (user.emailVerificationOtp !== otpTrimmed) {
         res.status(400);
         throw new Error('Invalid OTP');
     }
@@ -140,13 +177,28 @@ const resendOtp = asyncHandler(async (req, res) => {
         throw new Error('Email is required');
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const emailLower = email.toLowerCase();
 
-    if (!user) {
-        res.status(404);
-        throw new Error('User not found');
+    // Prefer PendingRegistration (new flow)
+    const pending = await PendingRegistration.findOne({ email: emailLower });
+    if (pending) {
+        const otp = pending.getEmailVerificationOtp();
+        await pending.save({ validateBeforeSave: false });
+        try {
+            await sendVerificationOtpEmail({ name: pending.name, email: pending.email }, otp);
+        } catch (err) {
+            res.status(500);
+            throw new Error(err.message || 'Failed to send verification email');
+        }
+        return res.json({ success: true, message: 'New OTP sent to your email' });
     }
 
+    // Legacy: unverified User in DB
+    const user = await User.findOne({ email: emailLower });
+    if (!user) {
+        res.status(404);
+        throw new Error('User not found. Please sign up first.');
+    }
     if (user.isEmailVerified) {
         res.status(400);
         throw new Error('Email is already verified');
@@ -159,7 +211,7 @@ const resendOtp = asyncHandler(async (req, res) => {
         await sendVerificationOtpEmail(user, otp);
     } catch (err) {
         res.status(500);
-        throw new Error('Failed to send verification email');
+        throw new Error(err.message || 'Failed to send verification email');
     }
 
     res.json({ success: true, message: 'New OTP sent to your email' });

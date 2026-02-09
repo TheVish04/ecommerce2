@@ -67,8 +67,10 @@ const userSchema = mongoose.Schema({
 });
 
 // Encrypt password using bcrypt (Mongoose 9: no next() - use async/await only)
+// Skip hashing if password is already a bcrypt hash (e.g. when creating User from PendingRegistration)
 userSchema.pre('save', async function () {
     if (!this.isModified('password')) return;
+    if (typeof this.password === 'string' && (this.password.startsWith('$2a$') || this.password.startsWith('$2b$'))) return;
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
 });

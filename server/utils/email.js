@@ -5,6 +5,8 @@ try {
     nodemailer = null;
 }
 
+const EMAIL_SEND_TIMEOUT_MS = 15000; // 15s - prevents signup/login from hanging
+
 let transporter = null;
 if (nodemailer && process.env.SMTP_HOST) {
     transporter = nodemailer.createTransport({
@@ -17,6 +19,14 @@ if (nodemailer && process.env.SMTP_HOST) {
         } : undefined
     });
 }
+
+const sendMailWithTimeout = (options) => {
+    if (!transporter) return Promise.reject(new Error('Email service is not configured'));
+    const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Email send timed out. Check SMTP settings.')), EMAIL_SEND_TIMEOUT_MS)
+    );
+    return Promise.race([transporter.sendMail(options), timeout]);
+};
 
 const buildOrderEmailHtml = (order) => {
     const items = (order.products || []).map(p => 
@@ -114,7 +124,7 @@ const sendPasswordResetEmail = async (user, resetToken) => {
     }
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const resetUrl = `${clientUrl}/resetpassword/${resetToken}`;
-    await transporter.sendMail({
+    await sendMailWithTimeout({
         from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@kalavpp.com',
         to: user.email,
         subject: 'Reset Your Password - KalaVPP',
@@ -146,7 +156,7 @@ const sendVerificationOtpEmail = async (user, otp) => {
     if (!transporter || !user?.email) {
         throw new Error('Email service is not configured');
     }
-    await transporter.sendMail({
+    await sendMailWithTimeout({
         from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@kalavpp.com',
         to: user.email,
         subject: 'Verify Your Email - KalaVPP',
