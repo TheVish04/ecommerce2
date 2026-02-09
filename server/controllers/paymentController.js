@@ -4,6 +4,7 @@ const Razorpay = require('razorpay');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const Service = require('../models/Service');
+const { buildOrderFromItems, ensureDownloadAccessForOrder } = require('./orderController');
 const { sendOrderConfirmationEmail } = require('../utils/email');
 
 let razorpayInstance = null;
@@ -91,6 +92,7 @@ const verifyPayment = asyncHandler(async (req, res) => {
         throw new Error('Invalid payment verification data');
     }
 
+    // Verify signature
     if (razorpayInstance) {
         const body = razorpay_order_id + '|' + razorpay_payment_id;
         const expectedSignature = crypto
@@ -103,7 +105,6 @@ const verifyPayment = asyncHandler(async (req, res) => {
         }
     }
 
-    const { buildOrderFromItems, ensureDownloadAccessForOrder } = require('./orderController');
     const order = await buildOrderFromItems(items, buyerId, shippingAddress || {});
     order.paymentStatus = razorpayInstance ? 'paid' : 'pending';
     order.razorpayOrderId = razorpay_order_id;
