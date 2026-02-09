@@ -25,7 +25,7 @@ const LoginPage = () => {
         e.preventDefault();
         setError('');
         if (!GMAIL_REGEX.test(email.trim())) {
-            setError('Only Gmail addresses are allowed');
+            setError('Only Gmail Address are allowed');
             return;
         }
         setLoading(true);
@@ -135,7 +135,7 @@ const LoginPage = () => {
                         <input
                             type="email"
                             required
-                            placeholder="Gmail address (e.g. you@gmail.com)"
+                            placeholder="Gmail address"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             className="w-full bg-light-800 dark:bg-dark-800 border border-gray-300 dark:border-white/10 rounded-lg pl-12 pr-4 py-3 text-dark-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors"
