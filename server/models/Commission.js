@@ -1,5 +1,9 @@
 const mongoose = require('mongoose');
 
+/**
+ * Commission Model - Customized & commission-based art, lifecycle management
+ * Annexure-A: Commission lifecycle management, escrow, admin oversight
+ */
 const commissionSchema = new mongoose.Schema({
     service: {
         type: mongoose.Schema.Types.ObjectId,
@@ -18,7 +22,7 @@ const commissionSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['pending', 'accepted', 'rejected', 'in_progress', 'delivered', 'completed', 'cancelled'],
+        enum: ['pending', 'accepted', 'rejected', 'in_progress', 'delivered', 'completed', 'cancelled', 'disputed'],
         default: 'pending'
     },
     description: {
@@ -26,7 +30,7 @@ const commissionSchema = new mongoose.Schema({
         required: true
     },
     referenceImages: [{
-        type: String // URL from Cloudinary
+        type: String
     }],
     budget: {
         type: Number,
@@ -43,9 +47,34 @@ const commissionSchema = new mongoose.Schema({
     }],
     paymentStatus: {
         type: String,
-        enum: ['pending', 'paid', 'released'],
+        enum: ['pending', 'paid', 'released', 'refunded'],
         default: 'pending'
     },
+    razorpayOrderId: String,
+    razorpayPaymentId: String,
+    paidAt: { type: Date },
+    escrowReleaseAt: { type: Date },
+    commissionRate: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 100
+    },
+    platformFee: {
+        type: Number,
+        default: 0
+    },
+    vendorAmount: {
+        type: Number,
+        default: 0
+    },
+    adminNotes: {
+        type: String,
+        sparse: true
+    },
+    disputedAt: { type: Date },
+    disputeReason: { type: String },
+    resolvedAt: { type: Date },
     messages: [{
         sender: {
             type: mongoose.Schema.Types.ObjectId,
@@ -64,5 +93,10 @@ const commissionSchema = new mongoose.Schema({
 }, {
     timestamps: true
 });
+
+commissionSchema.index({ customer: 1, createdAt: -1 });
+commissionSchema.index({ vendor: 1, createdAt: -1 });
+commissionSchema.index({ status: 1 });
+commissionSchema.index({ paymentStatus: 1 });
 
 module.exports = mongoose.model('Commission', commissionSchema);
