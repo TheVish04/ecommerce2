@@ -45,7 +45,7 @@ const CartPage = () => {
                         setUseNewAddress(false);
                     }
                 })
-                .catch(() => {});
+                .catch(() => { });
         }
     }, [currentUser, hasPhysicalProduct]);
 
@@ -126,6 +126,7 @@ const CartPage = () => {
                 prefill: { name: currentUser.name, email: currentUser.email, contact: shippingAddress.phone || '' },
                 theme: { color: '#2563eb' },
                 handler: async (response) => {
+                    const toastId = toast.loading('Verifying payment...');
                     try {
                         const verifyRes = await api.post('/orders/verify-payment', {
                             razorpay_order_id: response.razorpay_order_id,
@@ -134,10 +135,11 @@ const CartPage = () => {
                             ...payload
                         });
                         clearCart();
-                        toast.success('Payment successful! Order confirmed.');
+                        toast.success('Payment successful! Order confirmed.', { id: toastId });
                         navigate(`/order-confirmation/${verifyRes.data._id}`);
                     } catch (err) {
-                        toast.error(err.response?.data?.message || 'Payment verification failed');
+                        console.error('Payment verification error:', err);
+                        toast.error(err.response?.data?.message || 'Payment verification failed', { id: toastId });
                     } finally {
                         setCheckingOut(false);
                     }
@@ -278,11 +280,10 @@ const CartPage = () => {
                                                 key={addr._id}
                                                 type="button"
                                                 onClick={() => selectAddress(addr)}
-                                                className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
-                                                    selectedAddressId === addr._id
+                                                className={`w-full text-left p-4 rounded-lg border-2 transition-all ${selectedAddressId === addr._id
                                                         ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/10'
                                                         : 'border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20'
-                                                }`}
+                                                    }`}
                                             >
                                                 <div className="flex items-center justify-between">
                                                     <span className="font-medium">{addr.label}</span>
