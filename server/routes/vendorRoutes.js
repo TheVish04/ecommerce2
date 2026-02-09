@@ -18,7 +18,7 @@ const {
 
 const { protect } = require('../middleware/auth.middleware');
 const { authorize: roleAuthorize } = require('../middleware/role.middleware');
-const { validate } = require('../middleware/validate.middleware');
+const { runValidation } = require('../middleware/validate.middleware');
 const { upload } = require('../config/cloudinary');
 const { createServiceRules, updateServiceRules } = require('../validators/service.validator');
 
@@ -33,11 +33,11 @@ router.get('/payouts', getVendorPayouts);
 // Services
 router.route('/services')
     .get(getVendorServices)
-    .post(upload.single('coverImage'), ...createServiceRules(), validate, createService);
+    .post(upload.single('coverImage'), runValidation(createServiceRules()), createService);
 
 router.route('/services/:id')
     .get(getServiceById)
-    .put(upload.single('coverImage'), ...updateServiceRules(), validate, updateService);
+    .put(upload.single('coverImage'), runValidation(updateServiceRules()), updateService);
 
 router.patch('/services/:id/toggle', toggleServiceStatus);
 

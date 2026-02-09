@@ -11,7 +11,7 @@ const {
     updateAddress,
     deleteAddress
 } = require('../controllers/userController');
-const { validate } = require('../middleware/validate.middleware');
+const { runValidation } = require('../middleware/validate.middleware');
 const { updateProfileRules, addAddressRules, updateAddressRules } = require('../validators/user.validator');
 
 // Public Artist Profile
@@ -30,14 +30,14 @@ const { getUserDashboardStats } = require('../controllers/userDashboardControlle
 router.get('/dashboard', protect, getUserDashboardStats);
 
 // Profile
-router.route('/profile').get(protect, getProfile).put(protect, ...updateProfileRules(), validate, updateProfile);
+router.route('/profile').get(protect, getProfile).put(protect, runValidation(updateProfileRules()), updateProfile);
 
 // Addresses
 router.route('/addresses')
     .get(protect, getAddresses)
-    .post(protect, ...addAddressRules(), validate, addAddress);
+    .post(protect, runValidation(addAddressRules()), addAddress);
 router.route('/addresses/:id')
-    .put(protect, ...updateAddressRules(), validate, updateAddress)
+    .put(protect, runValidation(updateAddressRules()), updateAddress)
     .delete(protect, deleteAddress);
 
 module.exports = router;

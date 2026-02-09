@@ -11,7 +11,7 @@ const {
 } = require('../controllers/productController');
 const { protect } = require('../middleware/auth.middleware');
 const { authorize } = require('../middleware/role.middleware');
-const { validate } = require('../middleware/validate.middleware');
+const { runValidation } = require('../middleware/validate.middleware');
 const { upload } = require('../config/cloudinary');
 const { createProductRules, updateProductRules } = require('../validators/product.validator');
 
@@ -22,7 +22,7 @@ router.get('/', getAllPublicProducts);
 router.get('/vendor', protect, authorize('vendor', 'admin'), getVendorProducts);
 
 // Create Product (Vendor/Admin only)
-router.post('/', protect, authorize('vendor', 'admin'), upload.array('images', 5), ...createProductRules(), validate, createProduct);
+router.post('/', protect, authorize('vendor', 'admin'), upload.array('images', 5), runValidation(createProductRules()), createProduct);
 
 // Product Toggle (Vendor/Admin only)
 router.patch('/:id/toggle', protect, authorize('vendor', 'admin'), toggleProductStatus);
@@ -30,7 +30,7 @@ router.patch('/:id/toggle', protect, authorize('vendor', 'admin'), toggleProduct
 // Product CRUD
 router.route('/:id')
     .get(getProductById)
-    .put(protect, authorize('vendor', 'admin'), upload.array('images', 5), ...updateProductRules(), validate, updateProduct)
+    .put(protect, authorize('vendor', 'admin'), upload.array('images', 5), runValidation(updateProductRules()), updateProduct)
     .delete(protect, authorize('vendor', 'admin'), deleteProduct);
 
 module.exports = router;

@@ -10,7 +10,7 @@ const {
     resendOtp
 } = require('../controllers/auth.controller');
 const { protect } = require('../middleware/auth.middleware');
-const { validate } = require('../middleware/validate.middleware');
+const { runValidation } = require('../middleware/validate.middleware');
 const {
     registerRules,
     loginRules,
@@ -20,12 +20,12 @@ const {
     resendOtpRules
 } = require('../validators/auth.validator');
 
-router.post('/register', ...registerRules(), validate, registerUser);
-router.post('/verify-email', ...verifyEmailRules(), validate, verifyEmailOtp);
-router.post('/resend-otp', ...resendOtpRules(), validate, resendOtp);
-router.post('/login', ...loginRules(), validate, loginUser);
+router.post('/register', runValidation(registerRules()), registerUser);
+router.post('/verify-email', runValidation(verifyEmailRules()), verifyEmailOtp);
+router.post('/resend-otp', runValidation(resendOtpRules()), resendOtp);
+router.post('/login', runValidation(loginRules()), loginUser);
 router.get('/me', protect, getMe);
-router.post('/forgotpassword', ...forgotPasswordRules(), validate, forgotPassword);
-router.put('/resetpassword/:resettoken', ...resetPasswordRules(), validate, resetPassword);
+router.post('/forgotpassword', runValidation(forgotPasswordRules()), forgotPassword);
+router.put('/resetpassword/:resettoken', runValidation(resetPasswordRules()), resetPassword);
 
 module.exports = router;

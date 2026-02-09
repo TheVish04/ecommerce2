@@ -9,7 +9,7 @@ const {
     verifyCommissionPayment
 } = require('../controllers/commissionController');
 const { protect } = require('../middleware/auth.middleware');
-const { validate } = require('../middleware/validate.middleware');
+const { runValidation } = require('../middleware/validate.middleware');
 const {
     createCommissionRules,
     updateCommissionStatusRules,
@@ -18,16 +18,16 @@ const {
 } = require('../validators/commission.validator');
 
 router.route('/')
-    .post(protect, ...createCommissionRules(), validate, createCommission)
+    .post(protect, runValidation(createCommissionRules()), createCommission)
     .get(protect, getCommissions);
 
 router.post('/:id/initiate-payment', protect, initiateCommissionPayment);
-router.post('/:id/verify-payment', protect, ...verifyCommissionPaymentRules(), validate, verifyCommissionPayment);
+router.post('/:id/verify-payment', protect, runValidation(verifyCommissionPaymentRules()), verifyCommissionPayment);
 
 router.route('/:id/status')
-    .put(protect, ...updateCommissionStatusRules(), validate, updateCommissionStatus);
+    .put(protect, runValidation(updateCommissionStatusRules()), updateCommissionStatus);
 
 router.route('/:id/delivery')
-    .put(protect, ...uploadDeliveryRules(), validate, uploadDelivery);
+    .put(protect, runValidation(uploadDeliveryRules()), uploadDelivery);
 
 module.exports = router;
