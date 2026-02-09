@@ -63,30 +63,6 @@ const MerchandisePage = () => {
                     ))}
                 </div>
             </div>
-
-            {/* Featured Section (Placeholder for now) */}
-            <div className="bg-gray-50 dark:bg-white/5 py-20">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-end mb-12">
-                        <div>
-                            <h2 className="text-3xl font-bold font-display mb-2">Trending Now</h2>
-                            <p className="text-gray-500">Most loved designs this week</p>
-                        </div>
-                        <Link to="/shop?sort=trending" className="text-blue-500 font-bold hover:underline">View All</Link>
-                    </div>
-
-                    {/* Placeholder Products */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        {[1, 2, 3, 4].map((i) => (
-                            <div key={i} className="bg-white dark:bg-dark-800 rounded-2xl p-4 animate-pulse">
-                                <div className="aspect-[4/5] bg-gray-200 dark:bg-white/10 rounded-xl mb-4"></div>
-                                <div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-3/4 mb-2"></div>
-                                <div className="h-4 bg-gray-200 dark:bg-white/10 rounded w-1/2"></div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
         </div>
     );
 };
